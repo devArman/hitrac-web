@@ -9,7 +9,6 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import SettingsIcon from '@mui/icons-material/Settings';
 import MapIcon from '@mui/icons-material/Map';
 import PersonIcon from '@mui/icons-material/Person';
-import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 
 import { sessionActions } from '../../store';
 import { useTranslation } from './LocalizationProvider';
@@ -22,7 +21,6 @@ const BottomMenu = () => {
   const dispatch = useDispatch();
   const t = useTranslation();
 
-  const readonly = useRestriction('readonly');
   const disableReports = useRestriction('disableReports');
   const user = useSelector((state) => state.session.user);
   const socket = useSelector((state) => state.session.socket);
@@ -117,11 +115,9 @@ const BottomMenu = () => {
         {import.meta.env.VITE_FLAVOR !== 'clients' && (
           <BottomNavigationAction label={t('settingsTitle')} icon={<SettingsIcon />} value="settings" />
         )}
-        {readonly ? (
-          <BottomNavigationAction label={t('loginLogout')} icon={<ExitToAppIcon />} value="logout" />
-        ) : (
-          <BottomNavigationAction label={t('settingsUser')} icon={<PersonIcon />} value="account" />
-        )}
+        {/* HiTrack: аккаунт доступен всем, включая режим «только чтение» —
+            внутри этого пункта есть и переход в профиль, и выход */}
+        <BottomNavigationAction label={t('settingsUser')} icon={<PersonIcon />} value="account" />
       </BottomNavigation>
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
         <MenuItem onClick={handleAccount}>
