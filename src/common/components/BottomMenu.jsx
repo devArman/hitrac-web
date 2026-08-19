@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -9,6 +9,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import SettingsIcon from '@mui/icons-material/Settings';
 import MapIcon from '@mui/icons-material/Map';
 import PersonIcon from '@mui/icons-material/Person';
+import CampaignIcon from '@mui/icons-material/Campaign';
 
 import { sessionActions } from '../../store';
 import { useTranslation } from './LocalizationProvider';
@@ -27,9 +28,22 @@ const BottomMenu = () => {
 
   const [anchorEl, setAnchorEl] = useState(null);
 
+  // HiTrack: непрочитанные объявления — те, что новее отметки о прочтении в профиле
+  const unreadAnnouncements = useMemo(() => {
+    try {
+      const items = JSON.parse(user.attributes.announcements || '[]');
+      const readAt = user.attributes.announcementsReadAt || 0;
+      return items.filter((item) => item.time > readAt).length;
+    } catch {
+      return 0;
+    }
+  }, [user]);
+
   const currentSelection = () => {
     if (location.pathname === `/settings/user/${user.id}`) {
       return 'account';
+    } if (location.pathname === '/announcements') {
+      return 'announcements';
     } if (location.pathname.startsWith('/settings')) {
       return 'settings';
     } if (location.pathname.startsWith('/reports')) {
@@ -85,6 +99,9 @@ const BottomMenu = () => {
       case 'settings':
         navigate('/settings/preferences');
         break;
+      case 'announcements':
+        navigate('/announcements');
+        break;
       case 'account':
         setAnchorEl(event.currentTarget);
         break;
@@ -115,6 +132,16 @@ const BottomMenu = () => {
         {import.meta.env.VITE_FLAVOR !== 'clients' && (
           <BottomNavigationAction label={t('settingsTitle')} icon={<SettingsIcon />} value="settings" />
         )}
+        {/* HiTrack: объявления от администратора со счётчиком непрочитанных */}
+        <BottomNavigationAction
+          label={t('serverAnnouncement')}
+          icon={(
+            <Badge color="error" badgeContent={unreadAnnouncements} invisible={!unreadAnnouncements}>
+              <CampaignIcon />
+            </Badge>
+          )}
+          value="announcements"
+        />
         {/* HiTrack: аккаунт доступен всем, включая режим «только чтение» —
             внутри этого пункта есть и переход в профиль, и выход */}
         <BottomNavigationAction label={t('settingsUser')} icon={<PersonIcon />} value="account" />

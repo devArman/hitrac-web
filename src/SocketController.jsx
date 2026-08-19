@@ -36,6 +36,14 @@ const SocketController = () => {
     if (!features.disableEvents) {
       dispatch(eventsActions.add(events));
     }
+    // HiTrack: объявление сохраняется в профиле — перечитываем его,
+    // чтобы счётчик непрочитанных обновился сразу, без перезагрузки страницы
+    if (events.some((e) => e.type === 'announcement')) {
+      fetch('/api/session')
+        .then((response) => (response.ok ? response.json() : null))
+        .then((user) => user && dispatch(sessionActions.updateUser(user)))
+        .catch(() => {});
+    }
     if (events.some((e) => soundEvents.includes(e.type)
         || (e.type === 'alarm' && soundAlarms.includes(e.attributes.alarm)))) {
       new Audio(alarm).play();
