@@ -13,8 +13,29 @@ export default {
   },
   MuiButton: {
     styleOverrides: {
+      // HiTrack: скруглённые кнопки как на лендинге, без верхнего регистра
+      root: {
+        borderRadius: 999,
+        paddingLeft: 20,
+        paddingRight: 20,
+        boxShadow: 'none',
+      },
       sizeMedium: {
         height: '40px',
+      },
+      containedPrimary: ({ theme }) => ({
+        background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+        '&:hover': {
+          filter: 'brightness(1.05)',
+          boxShadow: 'none',
+        },
+      }),
+    },
+  },
+  MuiPaper: {
+    styleOverrides: {
+      rounded: {
+        borderRadius: 14,
       },
     },
   },
