@@ -40,12 +40,15 @@ const SettingsMenu = () => {
   return (
     <>
       <List>
-        <MenuItem
-          title={t('sharedPreferences')}
-          link="/settings/preferences"
-          icon={<SettingsIcon />}
-          selected={location.pathname === '/settings/preferences'}
-        />
+        {/* HiTrack: в кабинете клиента общие настройки не показываем — только аккаунт */}
+        {import.meta.env.VITE_FLAVOR !== 'clients' && (
+          <MenuItem
+            title={t('sharedPreferences')}
+            link="/settings/preferences"
+            icon={<SettingsIcon />}
+            selected={location.pathname === '/settings/preferences'}
+          />
+        )}
         {/* HiTrack: свой профиль доступен всегда, в том числе в режиме «только чтение» */}
         <MenuItem
           title={t('settingsUser')}
