@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
   Table, TableRow, TableCell, TableHead, TableBody,
@@ -16,10 +17,12 @@ import SearchHeader, { filterByKeyword } from './components/SearchHeader';
 import { useRestriction } from '../common/util/permissions';
 import useSettingsStyles from './common/useSettingsStyles';
 import fetchOrThrow from '../common/util/fetchOrThrow';
+import { groupsActions } from '../store';
 
 const GroupsPage = () => {
   const { classes } = useSettingsStyles();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const t = useTranslation();
 
   const limitCommands = useRestriction('limitCommands');
@@ -33,7 +36,11 @@ const GroupsPage = () => {
     setLoading(true);
     try {
       const response = await fetchOrThrow('/api/groups');
-      setItems(await response.json());
+      const groups = await response.json();
+      setItems(groups);
+      // держим общий кеш групп в актуальном состоянии: иначе колонка «Группа»
+      // в списке устройств остаётся пустой для групп, созданных после входа
+      dispatch(groupsActions.refresh(groups));
     } finally {
       setLoading(false);
     }
