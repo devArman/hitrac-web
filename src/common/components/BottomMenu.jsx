@@ -132,16 +132,19 @@ const BottomMenu = () => {
         {import.meta.env.VITE_FLAVOR !== 'clients' && (
           <BottomNavigationAction label={t('settingsTitle')} icon={<SettingsIcon />} value="settings" />
         )}
-        {/* HiTrack: объявления от администратора со счётчиком непрочитанных */}
-        <BottomNavigationAction
-          label={t('serverAnnouncement')}
-          icon={(
-            <Badge color="error" badgeContent={unreadAnnouncements} invisible={!unreadAnnouncements}>
-              <CampaignIcon />
-            </Badge>
-          )}
-          value="announcements"
-        />
+        {/* HiTrack: объявления от администратора со счётчиком непрочитанных.
+            В админке не нужны — оттуда объявления только рассылают */}
+        {import.meta.env.VITE_FLAVOR !== 'admin' && (
+          <BottomNavigationAction
+            label={t('serverAnnouncement')}
+            icon={(
+              <Badge color="error" badgeContent={unreadAnnouncements} invisible={!unreadAnnouncements}>
+                <CampaignIcon />
+              </Badge>
+            )}
+            value="announcements"
+          />
+        )}
         {/* HiTrack: аккаунт доступен всем, включая режим «только чтение» —
             внутри этого пункта есть и переход в профиль, и выход */}
         <BottomNavigationAction label={t('settingsUser')} icon={<PersonIcon />} value="account" />
