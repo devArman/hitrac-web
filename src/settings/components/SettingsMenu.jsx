@@ -46,6 +46,13 @@ const SettingsMenu = () => {
           icon={<SettingsIcon />}
           selected={location.pathname === '/settings/preferences'}
         />
+        {/* HiTrack: свой профиль доступен всегда, в том числе в режиме «только чтение» */}
+        <MenuItem
+          title={t('settingsUser')}
+          link={`/settings/user/${userId}`}
+          icon={<PersonIcon />}
+          selected={location.pathname === `/settings/user/${userId}`}
+        />
         {!readonly && (
           <>
             <MenuItem
@@ -53,12 +60,6 @@ const SettingsMenu = () => {
               link="/settings/notifications"
               icon={<NotificationsIcon />}
               selected={location.pathname.startsWith('/settings/notification')}
-            />
-            <MenuItem
-              title={t('settingsUser')}
-              link={`/settings/user/${userId}`}
-              icon={<PersonIcon />}
-              selected={location.pathname === `/settings/user/${userId}`}
             />
             <MenuItem
               title={t('deviceTitle')}
