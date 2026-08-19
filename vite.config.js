@@ -19,8 +19,13 @@ export default defineConfig(() => ({
     svgr(),
     react(),
     VitePWA({
-      includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png'],
+      // новая версия применяется сама при следующей загрузке страницы —
+      // клиентам не нужно чистить кеш или жать кнопку обновления
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.ico', 'favicon.svg', 'apple-touch-icon-180x180.png'],
       workbox: {
+        clientsClaim: true,
+        skipWaiting: true,
         navigateFallbackDenylist: [/^\/api/],
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,woff,woff2,mp3}'],
