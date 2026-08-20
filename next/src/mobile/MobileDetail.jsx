@@ -1,12 +1,22 @@
 import { useEffect, useState } from 'react';
 import LeafletMap from '../LeafletMap';
-import { fuelLevel, fuelLiters, getSummary, getTrips, sendCommand, startOfDay, KNOTS_TO_KMH } from '../api';
+import { fuelLevel, fuelLiters, getDeviceSettings, getSummary, getTrips, saveDeviceSettings, sendCommand, startOfDay, KNOTS_TO_KMH } from '../api';
 import { ConfirmDialog, Icon } from '../ui';
 
 export default function MobileDetail({ vehicle, devices, positions, onClose, onBuildTrack }) {
   const [stats, setStats] = useState(null);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [limits, setLimits] = useState({ speed: '', fuel: '', status: null });
+
+  useEffect(() => {
+    if (!vehicle) return;
+    getDeviceSettings().then((list) => {
+      const s = list.find((x) => x.deviceId === vehicle.device.id);
+      setLimits({ speed: s?.speedLimitKmh ?? '', fuel: s?.minFuelLiters ?? '', status: null });
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicle?.device.id]);
 
   useEffect(() => {
     if (!vehicle) return;
@@ -89,6 +99,39 @@ export default function MobileDetail({ vehicle, devices, positions, onClose, onB
           </div>
         </div>
       )}
+      <div style={{ border: '1px solid var(--color-divider)', borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--color-accent)' }}>Лимиты</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <div className="field" style={{ flex: 1 }}>
+            <label>Скорость, км/ч</label>
+            <input className="input" type="number" value={limits.speed}
+              onChange={(e) => setLimits({ ...limits, speed: e.target.value, status: null })} />
+          </div>
+          <div className="field" style={{ flex: 1 }}>
+            <label>Мин. топливо, л</label>
+            <input className="input" type="number" value={limits.fuel} disabled={fuel == null}
+              onChange={(e) => setLimits({ ...limits, fuel: e.target.value, status: null })} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button className="btn btn-secondary" style={{ fontSize: 12 }}
+            onClick={async () => {
+              try {
+                await saveDeviceSettings(vehicle.device.id, {
+                  speedLimitKmh: limits.speed === '' ? null : Number(limits.speed),
+                  minFuelLiters: limits.fuel === '' ? null : Number(limits.fuel),
+                });
+                setLimits({ ...limits, status: 'ok' });
+              } catch {
+                setLimits({ ...limits, status: 'err' });
+              }
+            }}>
+            Сохранить лимиты
+          </button>
+          {limits.status === 'ok' && <span style={{ fontSize: 12, color: 'var(--color-accent)' }}>Сохранено</span>}
+          {limits.status === 'err' && <span style={{ fontSize: 12, color: '#c0392b' }}>Ошибка</span>}
+        </div>
+      </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
         <button className="btn btn-primary" style={{ flex: 1, padding: '12px 0', letterSpacing: '.05em' }} onClick={onBuildTrack}>
           ПОСТРОИТЬ ТРЕК

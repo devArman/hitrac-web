@@ -56,6 +56,11 @@ export const sendCommand = (deviceId, type) =>
 export const updateMe = (patch) =>
   api('/me', { method: 'PATCH', body: JSON.stringify(patch) }).then((r) => r.json());
 
+export const getDeviceSettings = () => getJson('/device-settings');
+export const saveDeviceSettings = (deviceId, settings) =>
+  api(`/device-settings/${deviceId}`, { method: 'POST', body: JSON.stringify(settings) }).then((r) => r.json());
+export const getAlerts = (params = '') => getJson(`/alerts${params}`);
+
 const query = (params) => {
   const q = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => {

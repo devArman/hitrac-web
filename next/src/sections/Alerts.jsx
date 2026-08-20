@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { formatTime, getEvents, localDate } from '../api';
+import { formatTime, getAlerts, getEvents, localDate } from '../api';
 
 const EVENT_KINDS = {
   deviceOverspeed: { type: 'Скорость', tagClass: 'tag tag-outline', text: () => 'превышение скорости' },
@@ -14,6 +14,7 @@ const EVENT_KINDS = {
   ignitionOn: { type: 'Зажигание', tagClass: 'tag tag-accent', text: () => 'зажигание включено' },
   ignitionOff: { type: 'Зажигание', tagClass: 'tag tag-accent-2', text: () => 'зажигание выключено' },
   alarm: { type: 'Тревога', tagClass: 'tag tag-outline', text: (e) => `тревога: ${e.attributes?.alarm ?? ''}` },
+  fuelLow: { type: 'Топливо', tagClass: 'tag tag-outline', text: (e) => e.message },
 };
 
 const KIND_OPTIONS = [...new Set(Object.values(EVENT_KINDS).map((k) => k.type))];
@@ -29,9 +30,23 @@ export default function Alerts({ allVehicles, focusOnMap }) {
     const ids = deviceId ? [Number(deviceId)] : allVehicles.map((v) => v.device.id);
     if (!ids.length) { setEvents([]); return; }
     setEvents(null);
-    getEvents(ids, new Date(`${from}T00:00:00`), new Date(`${to}T23:59:59`))
-      .then((list) => setEvents(list.sort((a, b) => new Date(b.eventTime) - new Date(a.eventTime)).slice(0, 200)))
-      .catch(() => setEvents([]));
+    const fromDate = new Date(`${from}T00:00:00`);
+    const toDate = new Date(`${to}T23:59:59`);
+    Promise.all([
+      getEvents(ids, fromDate, toDate).catch(() => []),
+      getAlerts(`?from=${fromDate.toISOString()}&to=${toDate.toISOString()}${deviceId ? `&deviceId=${deviceId}` : ''}`).catch(() => []),
+    ]).then(([eventList, alertList]) => {
+      const ours = alertList.map((a) => ({
+        id: `ht-${a.id}`,
+        deviceId: a.deviceId,
+        type: a.type,
+        eventTime: a.createdAt,
+        message: a.message,
+      }));
+      setEvents([...eventList, ...ours]
+        .sort((a, b) => new Date(b.eventTime) - new Date(a.eventTime))
+        .slice(0, 200));
+    });
     // повтор при смене фильтров и когда приехал список машин (прямой заход по URL)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allVehicles.length > 0, deviceId, from, to]);

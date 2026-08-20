@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react';
-import { fuelLevel, fuelLiters, getSummary, startOfDay } from '../api';
+import { fuelLevel, fuelLiters, getDeviceSettings, getSummary, saveDeviceSettings, startOfDay } from '../api';
 
 export default function Fleet({ vehicles, focusOnMap }) {
   const [kmToday, setKmToday] = useState({});
+  const [settings, setSettings] = useState({}); // deviceId -> {speedLimitKmh, minFuelLiters}
+  const [limits, setLimits] = useState(null); // диалог: { vehicle, speed, fuel }
+
+  useEffect(() => {
+    getDeviceSettings()
+      .then((list) => setSettings(Object.fromEntries(list.map((s) => [s.deviceId, s]))))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const ids = vehicles.map((v) => v.device.id);
@@ -47,12 +55,67 @@ export default function Fleet({ vehicles, focusOnMap }) {
                 </td>
                 <td>{kmToday[v.device.id] ?? '—'} км</td>
                 <td className="text-muted">{v.device.attributes?.driver ?? v.device.contact ?? '—'}</td>
-                <td><button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => focusOnMap(v.device.id)}>На карте</button></td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => focusOnMap(v.device.id)}>На карте</button>
+                  <button
+                    className="btn btn-ghost"
+                    style={{ fontSize: 12 }}
+                    onClick={() => setLimits({
+                      vehicle: v,
+                      speed: settings[v.device.id]?.speedLimitKmh ?? '',
+                      fuel: settings[v.device.id]?.minFuelLiters ?? '',
+                    })}
+                  >
+                    Лимиты
+                  </button>
+                </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+      {limits && (
+        <div className="dialog-backdrop" onClick={() => setLimits(null)}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="dialog-title">Лимиты — {limits.vehicle.name}</div>
+            <div className="field">
+              <label>Лимит скорости, км/ч (пусто — выключено)</label>
+              <input className="input" type="number" min="1" value={limits.speed}
+                onChange={(e) => setLimits({ ...limits, speed: e.target.value })} placeholder="Например: 90" />
+            </div>
+            <div className="field">
+              <label>Мин. остаток топлива, л (нужен датчик топлива)</label>
+              <input className="input" type="number" min="1" value={limits.fuel}
+                disabled={fuelLevel(limits.vehicle.position) == null}
+                onChange={(e) => setLimits({ ...limits, fuel: e.target.value })}
+                placeholder={fuelLevel(limits.vehicle.position) == null ? 'Датчик топлива не подключён' : 'Например: 50'} />
+            </div>
+            <div className="text-muted" style={{ fontSize: 12 }}>
+              Превышение скорости и падение топлива ниже лимита появятся в «Уведомлениях».
+            </div>
+            <div className="dialog-actions">
+              <button className="btn btn-secondary" onClick={() => setLimits(null)}>Отмена</button>
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  try {
+                    const saved = await saveDeviceSettings(limits.vehicle.device.id, {
+                      speedLimitKmh: limits.speed === '' ? null : Number(limits.speed),
+                      minFuelLiters: limits.fuel === '' ? null : Number(limits.fuel),
+                    });
+                    setSettings({ ...settings, [saved.deviceId]: saved });
+                    setLimits(null);
+                  } catch (e) {
+                    alert(`Не удалось сохранить: ${e.message}`);
+                  }
+                }}
+              >
+                Сохранить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
