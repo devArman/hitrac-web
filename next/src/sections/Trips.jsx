@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import LeafletMap from '../LeafletMap';
 import { getRoute, getTrips, localDate, KNOTS_TO_KMH } from '../api';
+import { Icon } from '../ui';
 import { Blueprint } from '../ui';
 
 const timeOnly = (value) => new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -12,6 +13,52 @@ export default function Trips({ allVehicles }) {
   const [track, setTrack] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState(null); // индекс выбранной поездки
+
+  // воспроизведение трека: виртуальное время двигается с выбранной скоростью
+  const [playing, setPlaying] = useState(false);
+  const [playSpeed, setPlaySpeed] = useState(60);
+  const [playTime, setPlayTime] = useState(null); // мс epoch виртуального времени
+  const playTimer = useRef(null);
+
+  const trackStart = track?.length ? new Date(track[0].fixTime).getTime() : null;
+  const trackEnd = track?.length ? new Date(track[track.length - 1].fixTime).getTime() : null;
+
+  useEffect(() => {
+    // новый трек — сбрасываем плеер
+    setPlaying(false);
+    setPlayTime(null);
+  }, [track]);
+
+  useEffect(() => {
+    if (!playing) { clearInterval(playTimer.current); return undefined; }
+    playTimer.current = setInterval(() => {
+      setPlayTime((t) => {
+        const next = (t ?? trackStart) + 200 * playSpeed;
+        if (trackEnd != null && next >= trackEnd) { setPlaying(false); return trackEnd; }
+        return next;
+      });
+    }, 200);
+    return () => clearInterval(playTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, playSpeed, trackStart, trackEnd]);
+
+  // позиция маркера в виртуальный момент времени (линейная интерполяция между точками)
+  const playMarker = useMemo(() => {
+    if (!track?.length || playTime == null) return null;
+    let i = track.findIndex((p) => new Date(p.fixTime).getTime() >= playTime);
+    if (i <= 0) i = playTime <= new Date(track[0].fixTime).getTime() ? 1 : track.length - 1;
+    const a = track[i - 1];
+    const b = track[i];
+    const ta = new Date(a.fixTime).getTime();
+    const tb = new Date(b.fixTime).getTime();
+    const k = tb === ta ? 0 : Math.min(1, Math.max(0, (playTime - ta) / (tb - ta)));
+    return {
+      latitude: a.latitude + k * (b.latitude - a.latitude),
+      longitude: a.longitude + k * (b.longitude - a.longitude),
+      course: b.course ?? a.course ?? 0,
+      speed: Math.round(((a.speed ?? 0) + k * ((b.speed ?? 0) - (a.speed ?? 0))) * KNOTS_TO_KMH),
+    };
+  }, [track, playTime]);
 
   const selected = deviceId ?? allVehicles[0]?.device.id ?? null;
 
@@ -73,6 +120,45 @@ export default function Trips({ allVehicles }) {
         )}
         {loading && <div className="text-muted" style={{ fontSize: 13 }}>Загрузка…</div>}
         {!loading && trips.length === 0 && <div className="text-muted" style={{ fontSize: 13 }}>Поездок не найдено</div>}
+        {track && track.length > 1 && (
+          <div className="blueprint" style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <i className="corner tl" /><i className="corner tr" /><i className="corner bl" /><i className="corner br" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                className="btn btn-primary"
+                style={{ padding: '6px 10px' }}
+                onClick={() => {
+                  if (!playing && (playTime == null || playTime >= trackEnd)) setPlayTime(trackStart);
+                  setPlaying(!playing);
+                }}
+              >
+                <Icon name={playing ? 'pause' : 'play'} size={14} />
+              </button>
+              <div className="seg" style={{ display: 'flex' }}>
+                {[10, 60, 300].map((s) => (
+                  <span key={s} className="seg-opt" onClick={() => setPlaySpeed(s)}
+                    style={{ padding: '4px 8px', fontSize: 12, ...(playSpeed === s ? { background: 'var(--color-accent)', color: 'var(--color-bg)' } : {}) }}>
+                    ×{s}
+                  </span>
+                ))}
+              </div>
+              {playMarker && (
+                <span className="text-muted" style={{ marginLeft: 'auto', fontSize: 12 }}>
+                  {new Date(playTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })} · {playMarker.speed} км/ч
+                </span>
+              )}
+            </div>
+            <input
+              type="range"
+              min={trackStart}
+              max={trackEnd}
+              step={1000}
+              value={playTime ?? trackStart}
+              onChange={(e) => { setPlayTime(Number(e.target.value)); }}
+              style={{ width: '100%', accentColor: 'var(--color-accent)' }}
+            />
+          </div>
+        )}
         {trips.map((trip, index) => (
           <Blueprint
             key={index}
@@ -96,7 +182,7 @@ export default function Trips({ allVehicles }) {
           </Blueprint>
         ))}
       </div>
-      <LeafletMap track={track} />
+      <LeafletMap track={track} playMarker={playMarker} />
     </div>
   );
 }

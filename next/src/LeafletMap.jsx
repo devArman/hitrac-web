@@ -20,13 +20,14 @@ function markerIcon(color) {
  * devices/positions — карты по id; track — массив позиций; geofences — массив Traccar-геозон.
  * focusId — id устройства, к которому надо подлететь (меняется извне).
  */
-export default function LeafletMap({ devices, positions, track, geofences, focusId, focusSeq, onMarkerClick }) {
+export default function LeafletMap({ devices, positions, track, geofences, focusId, focusSeq, onMarkerClick, playMarker }) {
   const clickRef = useRef(onMarkerClick);
   clickRef.current = onMarkerClick;
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef(new Map());
   const layersRef = useRef([]);
+  const playRef = useRef(null);
   const fittedRef = useRef(false);
 
   useEffect(() => {
@@ -90,6 +91,24 @@ export default function LeafletMap({ devices, positions, track, geofences, focus
         color: '#0C7FC3', weight: 4, opacity: 0.85,
       }).addTo(map);
       layersRef.current.push(line);
+      // стрелки направления: ~15 штук равномерно вдоль трека
+      const step = Math.max(1, Math.floor(track.length / 15));
+      for (let i = step; i < track.length; i += step) {
+        const a = track[i - 1];
+        const b = track[i];
+        const arrow = L.marker([b.latitude, b.longitude], {
+          interactive: false,
+          icon: L.divIcon({
+            className: '',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8],
+            html: `<div style="transform: rotate(${bearing(a, b)}deg); width:16px; height:16px;
+              display:flex; align-items:center; justify-content:center;
+              color:#0C7FC3; font-size:13px; text-shadow:0 0 2px #fff, 0 0 2px #fff">▲</div>`,
+          }),
+        }).addTo(map);
+        layersRef.current.push(arrow);
+      }
       map.fitBounds(line.getBounds().pad(0.15));
     }
 
@@ -107,6 +126,27 @@ export default function LeafletMap({ devices, positions, track, geofences, focus
     }
   }, [track, geofences]);
 
+  // маркер воспроизведения поездки
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (!playMarker) {
+      playRef.current?.remove();
+      playRef.current = null;
+      return;
+    }
+    const html = `<div style="width:26px;height:26px;border-radius:50%;background:#019178;
+      border:3px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.45);display:flex;align-items:center;
+      justify-content:center;color:#fff;font-size:12px;transform:rotate(${Math.round(playMarker.course ?? 0)}deg)">▲</div>`;
+    const icon = L.divIcon({ className: '', iconSize: [26, 26], iconAnchor: [13, 13], html });
+    if (!playRef.current) {
+      playRef.current = L.marker([playMarker.latitude, playMarker.longitude], { icon, zIndexOffset: 1000 }).addTo(map);
+    } else {
+      playRef.current.setLatLng([playMarker.latitude, playMarker.longitude]);
+      playRef.current.setIcon(icon);
+    }
+  }, [playMarker]);
+
   // фокус на устройстве
   useEffect(() => {
     const map = mapRef.current;
@@ -115,6 +155,17 @@ export default function LeafletMap({ devices, positions, track, geofences, focus
   }, [focusId, focusSeq]);
 
   return <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />;
+}
+
+// направление между двумя точками, градусы от севера
+function bearing(a, b) {
+  const toRad = Math.PI / 180;
+  const dLon = (b.longitude - a.longitude) * toRad;
+  const lat1 = a.latitude * toRad;
+  const lat2 = b.latitude * toRad;
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
 }
 
 // Traccar WKT: CIRCLE (lat lon, r) | POLYGON ((lat lon, ...)) | LINESTRING (...)
