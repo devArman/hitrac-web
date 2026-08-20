@@ -7,16 +7,27 @@ const YEREVAN = [40.1792, 44.4991];
 
 const CATEGORY_EMOJI = { bicycle: '🚲', moped: '🛵', car: '🚗', truck: '🚚', boat: '🛥️' };
 
-function markerIcon(color, category) {
+function markerIcon(color, category, course, moving) {
   const emoji = CATEGORY_EMOJI[category];
   const size = emoji ? 28 : 22;
+  const wrap = size + 16;
+  const pad = (wrap - size) / 2;
+  // у движущихся — стрелка-носик по курсу (course, градусы от севера)
+  const pointer = moving ? `
+    <div style="position:absolute;inset:0;transform:rotate(${Math.round(course ?? 0)}deg)">
+      <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);
+        width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;
+        border-bottom:10px solid ${color};filter:drop-shadow(0 0 1.5px #fff)"></div>
+    </div>` : '';
   return L.divIcon({
     className: '',
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};
-      border:2.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);
-      display:flex;align-items:center;justify-content:center;font-size:15px;line-height:1">${emoji ?? ''}</div>`,
+    iconSize: [wrap, wrap],
+    iconAnchor: [wrap / 2, wrap / 2],
+    html: `<div style="position:relative;width:${wrap}px;height:${wrap}px">${pointer}
+      <div style="position:absolute;top:${pad}px;left:${pad}px;width:${size}px;height:${size}px;border-radius:50%;background:${color};
+        border:2.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);
+        display:flex;align-items:center;justify-content:center;font-size:15px;line-height:1">${emoji ?? ''}</div>
+    </div>`,
   });
 }
 
@@ -68,11 +79,12 @@ export default function LeafletMap({ devices, positions, track, geofences, focus
       seen.add(device.id);
       const { st } = vehicleState(device, position);
       const speed = Math.round(position.speed * KNOTS_TO_KMH);
+      const moving = st === 'move';
       const latlng = [position.latitude, position.longitude];
       const label = `<b>${device.name}</b><br>${ST[st].label}${st === 'move' ? ` · ${speed} км/ч` : ''}`;
       let marker = markers.get(device.id);
       if (!marker) {
-        marker = L.marker(latlng, { icon: markerIcon(ST[st].dot, device.category) }).addTo(map).bindTooltip(label);
+        marker = L.marker(latlng, { icon: markerIcon(ST[st].dot, device.category, position.course, moving) }).addTo(map).bindTooltip(label);
         marker.bindPopup(() => {
           const d = dataRef.current.devices?.[device.id] ?? device;
           const p = dataRef.current.positions?.[device.id] ?? position;
@@ -83,7 +95,7 @@ export default function LeafletMap({ devices, positions, track, geofences, focus
         markers.set(device.id, marker);
       } else {
         marker.setLatLng(latlng);
-        marker.setIcon(markerIcon(ST[st].dot, device.category));
+        marker.setIcon(markerIcon(ST[st].dot, device.category, position.course, moving));
         marker.setTooltipContent(label);
       }
     });
