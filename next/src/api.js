@@ -92,6 +92,11 @@ export const ST = {
   off: { label: 'Не на связи', tag: 'tag tag-neutral', dot: '#98989b' },
 };
 
+export function fuelLiters(position) {
+  const value = position?.attributes?.fuelLiters;
+  return value == null ? null : Math.round(value);
+}
+
 export function fuelLevel(position) {
   const a = position?.attributes ?? {};
   const value = a.fuel ?? a.fuelLevel ?? a.fuel1 ?? null;

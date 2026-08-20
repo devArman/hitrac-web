@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import LeafletMap from '../LeafletMap';
-import { fuelLevel, getRoute, getSummary, startOfDay } from '../api';
+import { fuelLevel, fuelLiters, getRoute, getSummary, startOfDay } from '../api';
 import { Icon } from '../ui';
 import { AnnouncementsBell } from '../Announcements';
 
@@ -102,7 +102,7 @@ export default function MobileMap({ user, vehicles, devices, positions, openDeta
           </div>
           <div className="text-muted" style={{ display: 'flex', gap: 14, fontSize: 12 }}>
             <span>{vehicle.stLine}</span>
-            {fuel != null && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="fuel" size={12} />{fuel}%</span>}
+            {fuel != null && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="fuel" size={12} />{fuel}%{fuelLiters(vehicle.position) != null && ` · ${fuelLiters(vehicle.position)} л`}</span>}
             {kmToday[vehicle.device.id] != null && <span>{kmToday[vehicle.device.id]} км сегодня</span>}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>

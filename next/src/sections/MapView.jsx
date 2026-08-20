@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import LeafletMap from '../LeafletMap';
-import { fuelLevel } from '../api';
+import { fuelLevel, fuelLiters } from '../api';
 import { Blueprint, Icon, StatusDot } from '../ui';
 
 export default function MapView({ vehicles, devices, positions, focus }) {
@@ -29,7 +29,7 @@ export default function MapView({ vehicles, devices, positions, focus }) {
                 <span className="text-muted">{v.speedLabel}</span>
                 {fuel != null && (
                   <span className="text-muted" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <Icon name="fuel" size={12} />{fuel}%
+                    <Icon name="fuel" size={12} />{fuel}%{fuelLiters(v.position) != null && ` · ${fuelLiters(v.position)} л`}
                   </span>
                 )}
               </div>

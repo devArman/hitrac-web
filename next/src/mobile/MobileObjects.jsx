@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fuelLevel, getSummary, startOfDay } from '../api';
+import { fuelLevel, fuelLiters, getSummary, startOfDay } from '../api';
 import { Icon } from '../ui';
 
 export default function MobileObjects({ vehicles, openDetail }) {
@@ -32,7 +32,7 @@ export default function MobileObjects({ vehicles, openDetail }) {
             </div>
             <div className="text-muted" style={{ display: 'flex', gap: 12, fontSize: 12, alignItems: 'center' }}>
               <span>{v.stLine}</span>
-              {fuel != null && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="fuel" size={12} />{fuel}%</span>}
+              {fuel != null && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="fuel" size={12} />{fuel}%{fuelLiters(v.position) != null && ` · ${fuelLiters(v.position)} л`}</span>}
               <span style={{ marginLeft: 'auto', color: 'var(--color-accent)' }}>{kmToday[v.device.id] ?? '—'} км</span>
             </div>
           </div>

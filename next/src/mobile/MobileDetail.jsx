@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import LeafletMap from '../LeafletMap';
-import { fuelLevel, getSummary, getTrips, sendCommand, startOfDay, KNOTS_TO_KMH } from '../api';
+import { fuelLevel, fuelLiters, getSummary, getTrips, sendCommand, startOfDay, KNOTS_TO_KMH } from '../api';
 import { ConfirmDialog, Icon } from '../ui';
 
 export default function MobileDetail({ vehicle, devices, positions, onClose, onBuildTrack }) {
@@ -81,7 +81,8 @@ export default function MobileDetail({ vehicle, devices, positions, onClose, onB
       {fuel != null && (
         <div style={{ border: '1px solid var(--color-divider)', borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-            <span className="text-muted">Топливо (ДУТ)</span><b>{fuel}%</b>
+            <span className="text-muted">Топливо (ДУТ)</span>
+            <b>{fuel}%{fuelLiters(vehicle.position) != null && ` · ${fuelLiters(vehicle.position)} л`}</b>
           </div>
           <div style={{ height: 6, background: 'color-mix(in srgb, var(--color-text) 12%, transparent)' }}>
             <div style={{ height: '100%', width: `${fuel}%`, background: 'var(--grad-brand)' }} />

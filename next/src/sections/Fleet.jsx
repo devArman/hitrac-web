@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fuelLevel, getSummary, startOfDay } from '../api';
+import { fuelLevel, fuelLiters, getSummary, startOfDay } from '../api';
 
 export default function Fleet({ vehicles, focusOnMap }) {
   const [kmToday, setKmToday] = useState({});
@@ -41,7 +41,7 @@ export default function Fleet({ vehicles, focusOnMap }) {
                       <div style={{ width: 70, height: 5, borderRadius: 3, overflow: 'hidden', background: 'var(--color-neutral-200)' }}>
                         <div style={{ height: '100%', background: 'var(--color-accent)', width: `${fuel}%` }} />
                       </div>
-                      {fuel}%
+                      {fuel}%{fuelLiters(v.position) != null && <span className="text-muted"> · {fuelLiters(v.position)} л</span>}
                     </div>
                   ) : <span className="text-muted">—</span>}
                 </td>
