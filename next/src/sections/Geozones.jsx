@@ -9,6 +9,7 @@ export default function Geozones({ user }) {
   const [points, setPoints] = useState([]);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
+  const [selectedId, setSelectedId] = useState(null); // показываем на карте только выбранную зону
 
   const load = () => getJson('/geofences').then(setZones).catch(() => setZones([]));
   useEffect(() => { load(); }, []);
@@ -65,15 +66,28 @@ export default function Geozones({ user }) {
         )}
         {zones === null && <div className="text-muted" style={{ fontSize: 13 }}>Загрузка…</div>}
         {zones?.length === 0 && <div className="text-muted" style={{ fontSize: 13 }}>Геозон пока нет — создай свою кнопкой выше</div>}
+        {zones?.length > 0 && selectedId == null && (
+          <div className="text-muted" style={{ fontSize: 12 }}>Нажми на геозону, чтобы увидеть её на карте</div>
+        )}
         {zones?.map((zone) => (
-          <Blueprint key={zone.id} style={{ padding: 10, fontSize: 13 }}>
+          <Blueprint
+            key={zone.id}
+            onClick={() => setSelectedId(selectedId === zone.id ? null : zone.id)}
+            style={{
+              padding: 10, fontSize: 13, cursor: 'pointer',
+              ...(selectedId === zone.id ? {
+                borderColor: 'var(--color-accent)',
+                background: 'color-mix(in srgb, var(--color-accent) 8%, transparent)',
+              } : {}),
+            }}
+          >
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <b>{zone.name}</b>
               <span className={zone.shared ? 'tag tag-accent-2' : 'tag tag-accent'} style={{ marginLeft: 'auto' }}>
                 {zone.shared ? 'общая' : 'моя'}
               </span>
               {zone.own && (
-                <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => remove(zone)}>Удалить</button>
+                <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={(e) => { e.stopPropagation(); remove(zone); }}>Удалить</button>
               )}
             </div>
             {zone.description && <div className="text-muted" style={{ fontSize: 12 }}>{zone.description}</div>}
@@ -81,7 +95,7 @@ export default function Geozones({ user }) {
         ))}
       </div>
       <LeafletMap
-        geofences={zones ?? []}
+        geofences={(zones ?? []).filter((z) => z.id === selectedId)}
         onMapClick={drawing ? (p) => setPoints((prev) => [...prev, p]) : undefined}
         drawPoints={drawing ? points : []}
       />
