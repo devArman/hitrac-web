@@ -1,27 +1,85 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useReducer } from 'react';
 import { api, formatTime, getJson } from './api';
-import { Blueprint } from './ui';
+import { Blueprint, Icon } from './ui';
 
 export const getAnnouncements = () => getJson('/announcements');
 export const markAnnouncementRead = (id) => api(`/announcements/${id}/read`, { method: 'POST' });
 
-/** Всплывающее окно с непрочитанными объявлениями — по одному, «Понятно» отмечает прочтение. */
-export function AnnouncementsModal() {
-  const [queue, setQueue] = useState([]);
+// ── мини-стор: одно состояние объявлений на всё приложение (модалка, список, колокольчик) ──
+let state = null; // null — ещё не загружено
+const listeners = new Set();
+let started = false;
+
+const emit = () => listeners.forEach((listener) => listener());
+
+async function load() {
+  try {
+    state = await getAnnouncements();
+  } catch {
+    state = state ?? [];
+  }
+  emit();
+}
+
+export function useAnnouncements() {
+  const [, force] = useReducer((c) => c + 1, 0);
 
   useEffect(() => {
-    getAnnouncements()
-      .then((list) => setQueue(list.filter((a) => !a.read)))
-      .catch(() => {});
+    listeners.add(force);
+    if (!started) {
+      started = true;
+      load();
+      // новые объявления подъезжают без перезахода
+      setInterval(() => { if (document.visibilityState !== 'hidden') load(); }, 60000);
+    }
+    return () => listeners.delete(force);
   }, []);
 
+  const markRead = async (id) => {
+    state = (state ?? []).map((a) => (a.id === id ? { ...a, read: true } : a));
+    emit();
+    try { await markAnnouncementRead(id); } catch { /* отметим при следующей загрузке */ }
+  };
+
+  const announcements = state ?? [];
+  return {
+    announcements,
+    unreadCount: announcements.filter((a) => !a.read).length,
+    markRead,
+  };
+}
+
+/** Колокольчик с числом непрочитанных объявлений. */
+export function AnnouncementsBell({ onClick, size = 20 }) {
+  const { unreadCount } = useAnnouncements();
+  return (
+    <button
+      className="btn btn-ghost"
+      onClick={onClick}
+      style={{ position: 'relative', padding: 8, color: 'inherit' }}
+      title="Объявления"
+    >
+      <Icon name="bell" size={size} />
+      {unreadCount > 0 && (
+        <span style={{
+          position: 'absolute', top: 0, right: 0, minWidth: 16, height: 16,
+          padding: '0 4px', borderRadius: 8, background: 'var(--color-accent)',
+          color: 'var(--color-bg)', fontSize: 10, fontWeight: 700,
+          display: 'grid', placeItems: 'center', lineHeight: 1,
+        }}>
+          {unreadCount}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/** Всплывающее окно с непрочитанными объявлениями — по одному, «Понятно» отмечает прочтение. */
+export function AnnouncementsModal() {
+  const { announcements, markRead } = useAnnouncements();
+  const queue = announcements.filter((a) => !a.read);
   const current = queue[0];
   if (!current) return null;
-
-  const dismiss = async () => {
-    setQueue((q) => q.slice(1));
-    try { await markAnnouncementRead(current.id); } catch { /* отметим в следующий раз */ }
-  };
 
   return (
     <div className="dialog-backdrop" style={{ zIndex: 2000 }}>
@@ -33,7 +91,7 @@ export function AnnouncementsModal() {
         <div className="dialog-body" style={{ whiteSpace: 'pre-wrap' }}>{current.body}</div>
         <div className="dialog-actions">
           {queue.length > 1 && <span className="text-muted" style={{ marginRight: 'auto', fontSize: 12, alignSelf: 'center' }}>ещё {queue.length - 1}</span>}
-          <button className="btn btn-primary" onClick={dismiss}>Понятно</button>
+          <button className="btn btn-primary" onClick={() => markRead(current.id)}>Понятно</button>
         </div>
       </div>
     </div>
@@ -42,18 +100,13 @@ export function AnnouncementsModal() {
 
 /** Список объявлений — блок для раздела «Уведомления». */
 export function AnnouncementsList() {
-  const [list, setList] = useState(null);
-
-  useEffect(() => {
-    getAnnouncements().then(setList).catch(() => setList([]));
-  }, []);
-
-  if (!list?.length) return null;
+  const { announcements } = useAnnouncements();
+  if (!announcements.length) return null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
       <h6 style={{ margin: 0 }}>Объявления</h6>
-      {list.map((a) => (
+      {announcements.map((a) => (
         <Blueprint key={a.id} style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <b style={{ fontSize: 14 }}>{a.subject}</b>

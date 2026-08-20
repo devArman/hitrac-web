@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ST, vehicleState } from '../api';
 import { Icon } from '../ui';
-import { AnnouncementsModal } from '../Announcements';
+import { AnnouncementsModal, useAnnouncements } from '../Announcements';
 import MobileMap from './MobileMap';
 import MobileObjects from './MobileObjects';
 import MobileDetail from './MobileDetail';
@@ -38,6 +38,8 @@ export default function MobileShell({ user, setUser, devices, positions }) {
     list.sort((a, b) => a.name.localeCompare(b.name));
     return list;
   }, [devices, positions]);
+
+  const { unreadCount } = useAnnouncements();
 
   const openDetail = (id) => { setDetailId(id); };
   const buildTrack = (id) => { setTrackFor(id); setDetailId(null); setTab('map'); };
@@ -76,7 +78,19 @@ export default function MobileShell({ user, setUser, devices, positions }) {
               color: tab === id ? 'var(--color-accent)' : 'color-mix(in srgb, var(--color-text) 45%, transparent)',
             }}
           >
-            <Icon name={icon} size={20} />
+            <span style={{ position: 'relative' }}>
+              <Icon name={icon} size={20} />
+              {id === 'events' && unreadCount > 0 && (
+                <span style={{
+                  position: 'absolute', top: -4, right: -8, minWidth: 14, height: 14,
+                  padding: '0 3px', borderRadius: 7, background: 'var(--color-accent)',
+                  color: 'var(--color-bg)', fontSize: 9, fontWeight: 700,
+                  display: 'grid', placeItems: 'center', lineHeight: 1,
+                }}>
+                  {unreadCount}
+                </span>
+              )}
+            </span>
             {label}
           </div>
         ))}
