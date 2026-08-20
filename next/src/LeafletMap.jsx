@@ -20,7 +20,9 @@ function markerIcon(color) {
  * devices/positions — карты по id; track — массив позиций; geofences — массив Traccar-геозон.
  * focusId — id устройства, к которому надо подлететь (меняется извне).
  */
-export default function LeafletMap({ devices, positions, track, geofences, focusId, focusSeq }) {
+export default function LeafletMap({ devices, positions, track, geofences, focusId, focusSeq, onMarkerClick }) {
+  const clickRef = useRef(onMarkerClick);
+  clickRef.current = onMarkerClick;
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef(new Map());
@@ -58,6 +60,7 @@ export default function LeafletMap({ devices, positions, track, geofences, focus
       let marker = markers.get(device.id);
       if (!marker) {
         marker = L.marker(latlng, { icon: markerIcon(ST[st].dot) }).addTo(map).bindTooltip(label);
+        marker.on('click', () => clickRef.current?.(device.id));
         markers.set(device.id, marker);
       } else {
         marker.setLatLng(latlng);
