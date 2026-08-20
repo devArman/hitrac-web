@@ -11,6 +11,7 @@ export default function Trips({ allVehicles }) {
   const [trips, setTrips] = useState([]);
   const [track, setTrack] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [selectedTrip, setSelectedTrip] = useState(null); // индекс выбранной поездки
 
   const selected = deviceId ?? allVehicles[0]?.device.id ?? null;
 
@@ -23,6 +24,7 @@ export default function Trips({ allVehicles }) {
   useEffect(() => {
     if (selected == null) return;
     setLoading(true);
+    setSelectedTrip(null);
     Promise.all([
       getTrips(selected, range.from, range.to),
       getRoute(selected, range.from, range.to),
@@ -34,6 +36,19 @@ export default function Trips({ allVehicles }) {
       .catch(() => { setTrips([]); setTrack(null); })
       .finally(() => setLoading(false));
   }, [selected, range]);
+
+  // клик по поездке — на карте только её маршрут; повторный клик — снова весь день
+  const pickTrip = async (trip, index) => {
+    if (selectedTrip === index) {
+      setSelectedTrip(null);
+      const route = await getRoute(selected, range.from, range.to).catch(() => []);
+      setTrack(route.length > 1 ? route : null);
+      return;
+    }
+    setSelectedTrip(index);
+    const route = await getRoute(selected, new Date(trip.startTime), new Date(trip.endTime)).catch(() => []);
+    setTrack(route.length > 1 ? route : null);
+  };
 
   return (
     <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
@@ -51,10 +66,25 @@ export default function Trips({ allVehicles }) {
           <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
         <h6 style={{ margin: '6px 0 0' }}>Поездки за день</h6>
+        {selectedTrip != null && (
+          <div className="text-muted" style={{ fontSize: 12 }}>
+            Показан маршрут выбранной поездки — клик по ней ещё раз вернёт весь день
+          </div>
+        )}
         {loading && <div className="text-muted" style={{ fontSize: 13 }}>Загрузка…</div>}
         {!loading && trips.length === 0 && <div className="text-muted" style={{ fontSize: 13 }}>Поездок не найдено</div>}
         {trips.map((trip, index) => (
-          <Blueprint key={index} style={{ padding: 10, fontSize: 13, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Blueprint
+            key={index}
+            onClick={() => pickTrip(trip, index)}
+            style={{
+              padding: 10, fontSize: 13, display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer',
+              ...(selectedTrip === index ? {
+                borderColor: 'var(--color-accent)',
+                background: 'color-mix(in srgb, var(--color-accent) 8%, transparent)',
+              } : {}),
+            }}
+          >
             <div style={{ display: 'flex', gap: 8 }}>
               <b>{timeOnly(trip.startTime)} — {timeOnly(trip.endTime)}</b>
               <span style={{ marginLeft: 'auto' }} className="tag tag-neutral">{Math.round(trip.distance / 1000)} км</span>
