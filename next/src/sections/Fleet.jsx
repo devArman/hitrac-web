@@ -14,9 +14,9 @@ export default function Fleet({ vehicles, focusOnMap }) {
         setKmToday(map);
       })
       .catch(() => {});
-    // сводка нужна разово при открытии раздела
+    // сводка при открытии; повтор, когда приехал список машин (прямой заход по URL)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [vehicles.length > 0]);
 
   return (
     <div style={{ padding: 20 }}>

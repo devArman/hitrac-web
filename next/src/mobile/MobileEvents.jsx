@@ -33,9 +33,9 @@ export default function MobileEvents({ vehicles }) {
     getEvents(ids, new Date(Date.now() - 48 * 3600 * 1000), new Date())
       .then((list) => setEvents(list.sort((a, b) => new Date(b.eventTime) - new Date(a.eventTime)).slice(0, 60)))
       .catch(() => setEvents([]));
-    // события за 48 часов — разово при открытии вкладки
+    // события за 48 часов; повтор, когда приехал список машин
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [vehicles.length > 0]);
 
   const nameById = Object.fromEntries(vehicles.map((v) => [v.device.id, v.name]));
 

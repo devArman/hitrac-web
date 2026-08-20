@@ -15,8 +15,30 @@ const TABS = [
   ['profile', 'Профиль', 'user'],
 ];
 
+
+// раздел живёт в URL (#/map, #/fleet…): F5 возвращает туда же, работает «назад»
+function useHashSection(valid, fallback) {
+  const read = () => {
+    const h = window.location.hash.replace(/^#\/?/, '');
+    return valid.includes(h) ? h : fallback;
+  };
+  const [section, setSection] = useState(read);
+  useEffect(() => {
+    const onHash = () => setSection(read());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (window.location.hash.replace(/^#\/?/, '') !== section) {
+      window.history.replaceState(null, '', `#/${section}`);
+    }
+  }, [section]);
+  return [section, setSection];
+}
+
 export default function MobileShell({ user, setUser, devices, positions }) {
-  const [tab, setTab] = useState('map');
+  const [tab, setTab] = useHashSection(TABS.map(([id]) => id), 'map');
   const [detailId, setDetailId] = useState(null); // открытая карточка объекта
   const [trackFor, setTrackFor] = useState(null); // «построить трек» на карте
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') ?? 'light');

@@ -17,9 +17,9 @@ export default function MobileMap({ user, vehicles, devices, positions, openDeta
     getSummary(ids, startOfDay(), new Date())
       .then((rows) => setKmToday(Object.fromEntries(rows.map((r) => [r.deviceId, Math.round((r.distance ?? 0) / 1000)]))))
       .catch(() => {});
-    // пробег за сегодня — разово при открытии карты
+    // пробег за сегодня; повтор, когда приехал список машин
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [vehicles.length > 0]);
 
   // «построить трек» из карточки объекта
   useEffect(() => {

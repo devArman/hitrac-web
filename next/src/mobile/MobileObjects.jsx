@@ -11,9 +11,9 @@ export default function MobileObjects({ vehicles, openDetail }) {
     getSummary(ids, startOfDay(), new Date())
       .then((rows) => setKmToday(Object.fromEntries(rows.map((r) => [r.deviceId, Math.round((r.distance ?? 0) / 1000)]))))
       .catch(() => {});
-    // разово при открытии вкладки
+    // при открытии вкладки; повтор, когда приехал список машин
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [vehicles.length > 0]);
 
   return (
     <div style={{ flex: 1, overflow: 'auto', padding: 'calc(8px + env(safe-area-inset-top)) 12px 8px', display: 'flex', flexDirection: 'column', gap: 8 }}>

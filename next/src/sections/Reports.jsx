@@ -20,9 +20,9 @@ export default function Reports({ allVehicles }) {
       .finally(() => setLoading(false));
   };
 
-  // сформировать при первом открытии
+  // сформировать при открытии — и повторить, когда приехал список машин (прямой заход по URL)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(build, []);
+  useEffect(() => { if (allVehicles.length) build(); }, [allVehicles.length > 0]);
 
   const nameById = Object.fromEntries(allVehicles.map((v) => [v.device.id, v.name]));
   const totalKm = Math.round(rows.reduce((s, r) => s + (r.distance ?? 0), 0) / 1000);

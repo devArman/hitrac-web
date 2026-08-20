@@ -29,8 +29,10 @@ export function useAnnouncements() {
     if (!started) {
       started = true;
       load();
-      // новые объявления подъезжают без перезахода
-      setInterval(() => { if (document.visibilityState !== 'hidden') load(); }, 60000);
+      // новые объявления подъезжают без перезахода: частый опрос + обновление при возврате на вкладку
+      setInterval(() => { if (document.visibilityState !== 'hidden') load(); }, 15000);
+      window.addEventListener('focus', load);
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') load(); });
     }
     return () => listeners.delete(force);
   }, []);

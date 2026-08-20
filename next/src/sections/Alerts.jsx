@@ -26,9 +26,9 @@ export default function Alerts({ allVehicles, focusOnMap }) {
     getEvents(ids, from, new Date())
       .then((list) => setEvents(list.sort((a, b) => new Date(b.eventTime) - new Date(a.eventTime)).slice(0, 60)))
       .catch(() => setEvents([]));
-    // события за последние 48 часов, разово при открытии
+    // события за 48 часов; повтор, когда приехал список машин (прямой заход по URL)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [allVehicles.length > 0]);
 
   const nameById = Object.fromEntries(allVehicles.map((v) => [v.device.id, v.name]));
 

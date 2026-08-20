@@ -27,8 +27,30 @@ const TITLES = {
   alerts: 'Уведомления и события', geo: 'Геозоны', engine: 'Управление двигателем', settings: 'Настройки',
 };
 
+
+// раздел живёт в URL (#/map, #/fleet…): F5 возвращает туда же, работает «назад»
+function useHashSection(valid, fallback) {
+  const read = () => {
+    const h = window.location.hash.replace(/^#\/?/, '');
+    return valid.includes(h) ? h : fallback;
+  };
+  const [section, setSection] = useState(read);
+  useEffect(() => {
+    const onHash = () => setSection(read());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (window.location.hash.replace(/^#\/?/, '') !== section) {
+      window.history.replaceState(null, '', `#/${section}`);
+    }
+  }, [section]);
+  return [section, setSection];
+}
+
 export default function Shell({ user, setUser, devices, positions }) {
-  const [section, setSection] = useState('map');
+  const [section, setSection] = useHashSection(NAV.map(([id]) => id), 'map');
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') ?? 'light');
   const [search, setSearch] = useState('');
   const [focus, setFocus] = useState({ id: null, seq: 0 });
