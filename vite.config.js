@@ -26,7 +26,7 @@ export default defineConfig(() => ({
       workbox: {
         clientsClaim: true,
         skipWaiting: true,
-        navigateFallbackDenylist: [/^\/api/],
+        navigateFallbackDenylist: [/^\/api/, /^\/next/],
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,woff,woff2,mp3}'],
       },
