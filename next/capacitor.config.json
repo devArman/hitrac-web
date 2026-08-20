@@ -1,0 +1,10 @@
+{
+  "appId": "am.hitrack.client",
+  "appName": "HiTrack",
+  "webDir": "dist",
+  "server": {
+    "url": "https://clients.hitrack.am",
+    "androidScheme": "https"
+  },
+  "backgroundColor": "#edf0f0"
+}

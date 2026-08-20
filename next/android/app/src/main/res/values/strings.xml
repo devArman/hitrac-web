@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">HiTrack</string>
+    <string name="title_activity_main">HiTrack</string>
+    <string name="package_name">am.hitrack.client</string>
+    <string name="custom_url_scheme">am.hitrack.client</string>
+</resources>
