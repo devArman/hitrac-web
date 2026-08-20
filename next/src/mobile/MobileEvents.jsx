@@ -46,7 +46,7 @@ export default function MobileEvents({ vehicles }) {
       {events?.map((event) => {
         const [type, color, text] = KINDS[event.type] ?? [event.type, '#8a9699', () => ''];
         return (
-          <div key={event.id} style={{ border: '1px solid var(--color-divider)', padding: '11px 12px', display: 'flex', flexDirection: 'column', gap: 4, minHeight: 44 }}>
+          <div key={event.id} style={{ border: '1px solid var(--color-divider)', borderRadius: 10, padding: '11px 12px', display: 'flex', flexDirection: 'column', gap: 4, minHeight: 44 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <span style={{ fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', padding: '2px 8px', border: `1px solid ${color}`, color }}>{type}</span>
               <span className="text-muted" style={{ marginLeft: 'auto', fontSize: 11 }}>{timeLabel(event.eventTime)}</span>

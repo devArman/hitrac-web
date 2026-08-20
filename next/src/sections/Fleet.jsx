@@ -38,7 +38,7 @@ export default function Fleet({ vehicles, focusOnMap }) {
                 <td>
                   {fuel != null ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 70, height: 5, background: 'var(--color-neutral-200)' }}>
+                      <div style={{ width: 70, height: 5, borderRadius: 3, overflow: 'hidden', background: 'var(--color-neutral-200)' }}>
                         <div style={{ height: '100%', background: 'var(--color-accent)', width: `${fuel}%` }} />
                       </div>
                       {fuel}%

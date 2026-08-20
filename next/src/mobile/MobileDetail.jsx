@@ -62,7 +62,7 @@ export default function MobileDetail({ vehicle, devices, positions, onClose, onB
         <b style={{ fontSize: 17, fontFamily: 'var(--font-heading)', letterSpacing: '.02em' }}>{vehicle.name}</b>
         <span className="text-muted" style={{ marginLeft: 'auto', fontSize: 12 }}>{vehicle.plate}</span>
       </div>
-      <div style={{ height: 180, position: 'relative', border: '1px solid var(--color-divider)', display: 'flex', flex: 'none' }}>
+      <div style={{ height: 180, position: 'relative', border: '1px solid var(--color-divider)', borderRadius: 10, overflow: 'hidden', display: 'flex', flex: 'none' }}>
         <LeafletMap devices={one} positions={positions} focusId={vehicle.device.id} focusSeq={1} />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -72,14 +72,14 @@ export default function MobileDetail({ vehicle, devices, positions, onClose, onB
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         {cards.map((c) => (
-          <div key={c.k} style={{ border: '1px solid var(--color-divider)', padding: 10 }}>
+          <div key={c.k} style={{ border: '1px solid var(--color-divider)', borderRadius: 10, padding: 10 }}>
             <div style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--color-accent)' }}>{c.k}</div>
             <div style={{ fontFamily: 'var(--font-heading)', fontSize: 22 }}>{c.v}</div>
           </div>
         ))}
       </div>
       {fuel != null && (
-        <div style={{ border: '1px solid var(--color-divider)', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ border: '1px solid var(--color-divider)', borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
             <span className="text-muted">Топливо (ДУТ)</span><b>{fuel}%</b>
           </div>

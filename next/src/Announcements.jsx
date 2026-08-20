@@ -129,7 +129,7 @@ export function AnnouncementsPanel({ onClose }) {
       <div style={{
         position: 'absolute', top: '100%', right: 0, marginTop: 8, width: 380, maxHeight: '70vh',
         overflow: 'auto', zIndex: 1600, background: 'var(--color-bg)',
-        border: '1px solid var(--color-divider)', boxShadow: 'var(--shadow-lg)', padding: 12,
+        border: '1px solid var(--color-divider)', borderRadius: 12, boxShadow: 'var(--shadow-lg)', padding: 12,
       }}>
         <h6 style={{ margin: '0 0 8px' }}>Объявления</h6>
         <AnnouncementItems />

@@ -70,7 +70,7 @@ export default function MobileMap({ user, vehicles, devices, positions, openDeta
             style={{ background: 'color-mix(in srgb, var(--color-bg) 92%, transparent)', minHeight: 42 }}
           />
           {matches.length > 0 && (
-            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--color-bg)', border: '1px solid var(--color-divider)', borderTop: 0 }}>
+            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--color-bg)', border: '1px solid var(--color-divider)', borderTop: 0, borderRadius: '0 0 10px 10px', overflow: 'hidden' }}>
               {matches.map((v) => (
                 <div key={v.device.id} onClick={() => pick(v.device.id)} style={{ padding: '10px 12px', display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, borderTop: '1px solid var(--color-divider)' }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: v.dotColor }} />
@@ -81,10 +81,10 @@ export default function MobileMap({ user, vehicles, devices, positions, openDeta
             </div>
           )}
         </div>
-        <span style={{ width: 42, height: 42, flex: 'none', display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, var(--color-bg) 92%, transparent)', border: '1px solid var(--color-divider)' }}>
+        <span style={{ width: 42, height: 42, flex: 'none', display: 'grid', placeItems: 'center', borderRadius: 10, background: 'color-mix(in srgb, var(--color-bg) 92%, transparent)', border: '1px solid var(--color-divider)' }}>
           <AnnouncementsBell onClick={openAnnouncements} size={18} />
         </span>
-        <span style={{ width: 42, height: 42, flex: 'none', display: 'grid', placeItems: 'center', background: 'var(--grad-brand)', color: '#fff', fontFamily: 'var(--font-heading)' }}>
+        <span style={{ width: 42, height: 42, flex: 'none', display: 'grid', placeItems: 'center', borderRadius: 10, background: 'var(--grad-brand)', color: '#fff', fontFamily: 'var(--font-heading)' }}>
           {initials}
         </span>
       </div>
@@ -92,7 +92,7 @@ export default function MobileMap({ user, vehicles, devices, positions, openDeta
         <div style={{
           position: 'absolute', left: 12, right: 12, bottom: 14, zIndex: 1000,
           background: 'color-mix(in srgb, var(--color-bg) 96%, transparent)',
-          border: '1px solid var(--color-divider)', padding: 12,
+          border: '1px solid var(--color-divider)', borderRadius: 12, padding: 12,
           display: 'flex', flexDirection: 'column', gap: 8, boxShadow: 'var(--shadow-lg)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => openDetail(vehicle.device.id)}>

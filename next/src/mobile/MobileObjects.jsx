@@ -23,7 +23,7 @@ export default function MobileObjects({ vehicles, openDetail }) {
           <div
             key={v.device.id}
             onClick={() => openDetail(v.device.id)}
-            style={{ border: '1px solid var(--color-divider)', background: 'var(--color-surface)', padding: 12, display: 'flex', flexDirection: 'column', gap: 6, minHeight: 44, cursor: 'pointer' }}
+            style={{ border: '1px solid var(--color-divider)', borderRadius: 10, background: 'var(--color-surface)', padding: 12, display: 'flex', flexDirection: 'column', gap: 6, minHeight: 44, cursor: 'pointer' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: v.dotColor }} />

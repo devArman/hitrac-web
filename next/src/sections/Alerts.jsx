@@ -40,7 +40,7 @@ export default function Alerts({ allVehicles, focusOnMap }) {
       {events.map((event) => {
         const kind = EVENT_KINDS[event.type] ?? { type: event.type, tagClass: 'tag tag-neutral', text: () => '' };
         return (
-          <div key={event.id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '10px 12px', border: '1px solid var(--color-divider)' }}>
+          <div key={event.id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '10px 12px', border: '1px solid var(--color-divider)', borderRadius: 10 }}>
             <span className={kind.tagClass} style={{ flex: 'none' }}>{kind.type}</span>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 14 }}><b>{nameById[event.deviceId] ?? `#${event.deviceId}`}</b> — {kind.text(event)}</div>

@@ -156,7 +156,7 @@ export default function Shell({ user, setUser, devices, positions }) {
             </div>
             <input className="input" placeholder="Поиск объекта…" style={{ width: 220, minHeight: 32 }} value={search} onChange={(e) => setSearch(e.target.value)} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-              <span style={{ width: 28, height: 28, display: 'grid', placeItems: 'center', background: 'var(--grad-brand)', color: '#fff', fontFamily: 'var(--font-heading)', fontSize: 13 }}>
+              <span style={{ width: 28, height: 28, display: 'grid', placeItems: 'center', borderRadius: 8, background: 'var(--grad-brand)', color: '#fff', fontFamily: 'var(--font-heading)', fontSize: 13 }}>
                 {initials}
               </span>
               {user.name || user.email}
