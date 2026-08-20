@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { updateUser } from '../api';
+import { updateMe } from '../api';
 import { Blueprint } from '../ui';
 
 const ALERT_OPTIONS = [
@@ -9,21 +9,24 @@ const ALERT_OPTIONS = [
   ['offline', 'Потеря связи'],
 ];
 
+const loadAlerts = () => {
+  try { return JSON.parse(localStorage.getItem('clientAlerts')) ?? { overspeed: true, geofence: true, offline: true }; }
+  catch { return { overspeed: true, geofence: true, offline: true }; }
+};
+
 export default function Settings({ user, setUser, allVehicles }) {
   const [name, setName] = useState(user.name ?? '');
   const [phone, setPhone] = useState(user.phone ?? '');
-  const [email, setEmail] = useState(user.email ?? '');
-  const [alerts, setAlerts] = useState(() => user.attributes?.clientAlerts ?? { overspeed: true, geofence: true, offline: true });
+  const [password, setPassword] = useState('');
+  const [alerts, setAlerts] = useState(loadAlerts);
   const [status, setStatus] = useState(null);
 
   const save = async () => {
     setStatus('saving');
     try {
-      const updated = await updateUser({
-        ...user, name, phone, email,
-        attributes: { ...user.attributes, clientAlerts: alerts },
-      });
+      const updated = await updateMe({ name, phone, ...(password ? { password } : {}) });
       setUser(updated);
+      setPassword('');
       setStatus('saved');
       setTimeout(() => setStatus(null), 2500);
     } catch (error) {
@@ -32,8 +35,9 @@ export default function Settings({ user, setUser, allVehicles }) {
   };
 
   const toggle = (key) => {
-    setAlerts((a) => ({ ...a, [key]: !a[key] }));
-    setStatus(null);
+    const next = { ...alerts, [key]: !alerts[key] };
+    setAlerts(next);
+    localStorage.setItem('clientAlerts', JSON.stringify(next));
   };
 
   return (
@@ -42,7 +46,8 @@ export default function Settings({ user, setUser, allVehicles }) {
         <h5 style={{ margin: 0 }}>Профиль</h5>
         <div className="field"><label>Имя</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></div>
         <div className="field"><label>Телефон</label><input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
-        <div className="field"><label>Email</label><input className="input" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+        <div className="field"><label>Email (логин)</label><input className="input" value={user.email} disabled /></div>
+        <div className="field"><label>Новый пароль (если нужно сменить)</label><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button className="btn btn-primary" style={{ alignSelf: 'flex-start' }} onClick={save} disabled={status === 'saving'}>
             {status === 'saving' ? 'Сохранение…' : 'Сохранить'}
@@ -61,7 +66,6 @@ export default function Settings({ user, setUser, allVehicles }) {
               {label}
             </label>
           ))}
-          <div className="text-muted" style={{ fontSize: 11 }}>Не забудьте нажать «Сохранить» в профиле</div>
         </Blueprint>
         <Blueprint style={{ padding: 16 }}>
           <h5 style={{ margin: '0 0 6px' }}>Тариф</h5>

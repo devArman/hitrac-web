@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getJson, getSession } from './api';
 import Login from './Login';
 import Shell from './Shell';
@@ -21,48 +21,27 @@ export default function App() {
   const [checked, setChecked] = useState(false);
   const [devices, setDevices] = useState({});
   const [positions, setPositions] = useState({});
-  const socketRef = useRef(null);
 
   useEffect(() => {
     getSession().then(setUser).catch(() => {}).finally(() => setChecked(true));
   }, []);
 
-  const connectSocket = useCallback(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const socket = new WebSocket(`${protocol}://${window.location.host}/api/socket`);
-    socketRef.current = socket;
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.devices) {
-        setDevices((prev) => {
-          const next = { ...prev };
-          data.devices.forEach((d) => { next[d.id] = d; });
-          return next;
-        });
-      }
-      if (data.positions) {
-        setPositions((prev) => {
-          const next = { ...prev };
-          data.positions.forEach((p) => { next[p.deviceId] = p; });
-          return next;
-        });
-      }
-    };
-    socket.onclose = () => {
-      socketRef.current = null;
-      setTimeout(() => { if (document.visibilityState !== 'hidden') connectSocket(); }, 5000);
-    };
-  }, []);
-
+  // живые данные: позиции каждые 5 секунд, устройства (статусы) каждые 30
   useEffect(() => {
     if (!user) return undefined;
-    Promise.all([getJson('/devices'), getJson('/positions')]).then(([deviceList, positionList]) => {
-      setDevices(Object.fromEntries(deviceList.map((d) => [d.id, d])));
-      setPositions(Object.fromEntries(positionList.map((p) => [p.deviceId, p])));
-      connectSocket();
-    });
-    return () => socketRef.current?.close();
-  }, [user, connectSocket]);
+    let alive = true;
+    const loadDevices = () => getJson('/devices')
+      .then((list) => { if (alive) setDevices(Object.fromEntries(list.map((d) => [d.id, d]))); })
+      .catch(() => {});
+    const loadPositions = () => getJson('/positions')
+      .then((list) => { if (alive) setPositions(Object.fromEntries(list.map((p) => [p.deviceId, p]))); })
+      .catch(() => {});
+    loadDevices();
+    loadPositions();
+    const positionsTimer = setInterval(() => { if (document.visibilityState !== 'hidden') loadPositions(); }, 5000);
+    const devicesTimer = setInterval(() => { if (document.visibilityState !== 'hidden') loadDevices(); }, 30000);
+    return () => { alive = false; clearInterval(positionsTimer); clearInterval(devicesTimer); };
+  }, [user]);
 
   if (!checked) return null;
   if (!user) return <Login onLogin={setUser} />;

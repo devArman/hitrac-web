@@ -1,40 +1,60 @@
-// Тонкая обёртка над Traccar API (относительные пути — nginx проксирует /api на Traccar)
+// Клиент hitrac-api (/v2): наш JWT, устройства и позиции из нашей БД,
+// Traccar-специфика (отчёты, команды, геозоны) — через прокси нашего бэкенда.
+
+const TOKEN_KEY = 'ht_token';
 
 export async function api(path, options = {}) {
-  const response = await fetch(`/api${path}`, options);
+  const token = localStorage.getItem(TOKEN_KEY);
+  const response = await fetch(`/v2${path}`, {
+    ...options,
+    headers: {
+      Accept: 'application/json',
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
+  if (response.status === 401) {
+    localStorage.removeItem(TOKEN_KEY);
+    throw new Error('unauthorized');
+  }
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text.split('\n')[0] || `HTTP ${response.status}`);
+    let message = `HTTP ${response.status}`;
+    try { message = (await response.json()).message ?? message; } catch { /* not json */ }
+    throw new Error(Array.isArray(message) ? message.join(', ') : message);
   }
   return response;
 }
 
-export const getJson = (path) => api(path, { headers: { Accept: 'application/json' } }).then((r) => r.json());
+export const getJson = (path) => api(path).then((r) => r.json());
 
-export const getSession = () => getJson('/session');
+export const getSession = () => {
+  if (!localStorage.getItem(TOKEN_KEY)) return Promise.reject(new Error('no token'));
+  return getJson('/me');
+};
 
-export const login = (email, password) =>
-  api('/session', {
+export const login = async (email, password) => {
+  const response = await fetch('/v2/auth/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ email, password }),
-  }).then((r) => r.json());
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!response.ok) throw new Error('bad credentials');
+  const result = await response.json();
+  localStorage.setItem(TOKEN_KEY, result.accessToken);
+  return result.user;
+};
 
-export const logout = () => api('/session', { method: 'DELETE' });
+export const logout = () => {
+  localStorage.removeItem(TOKEN_KEY);
+  return Promise.resolve();
+};
 
 export const sendCommand = (deviceId, type) =>
-  api('/commands/send', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ deviceId, type, attributes: {} }),
-  });
+  api('/commands/send', { method: 'POST', body: JSON.stringify({ deviceId, type }) });
 
-export const updateUser = (user) =>
-  api(`/users/${user.id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(user),
-  }).then((r) => r.json());
+export const updateMe = (patch) =>
+  api('/me', { method: 'PATCH', body: JSON.stringify(patch) }).then((r) => r.json());
 
 const query = (params) => {
   const q = new URLSearchParams();
@@ -56,14 +76,13 @@ export const getSummary = (deviceIds, from, to) =>
 export const getEvents = (deviceIds, from, to) =>
   getJson(`/reports/events?${query({ deviceId: deviceIds, from: from.toISOString(), to: to.toISOString() })}`);
 
-// ── производные значения из данных Traccar ──
+// ── производные значения ──
 
 export const KNOTS_TO_KMH = 1.852;
 
 export function vehicleState(device, position) {
   const speed = position ? Math.round(position.speed * KNOTS_TO_KMH) : 0;
-  if (device.status !== 'online' && device.status !== 'unknown') return { st: 'off', speed: 0 };
-  if (device.status === 'unknown') return { st: 'off', speed: 0 };
+  if (device.status !== 'online') return { st: 'off', speed: 0 };
   return speed > 3 ? { st: 'move', speed } : { st: 'park', speed: 0 };
 }
 

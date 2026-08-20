@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { api, updateUser } from '../api';
+import { logout as apiLogout, updateMe } from '../api';
 import { Blueprint, Icon } from '../ui';
 
 export default function MobileProfile({ user, setUser, vehicles, theme, setTheme }) {
@@ -10,7 +10,7 @@ export default function MobileProfile({ user, setUser, vehicles, theme, setTheme
   const save = async () => {
     setStatus('saving');
     try {
-      setUser(await updateUser({ ...user, name, phone }));
+      setUser(await updateMe({ name, phone }));
       setStatus('saved');
       setTimeout(() => setStatus(null), 2000);
     } catch (error) {
@@ -19,7 +19,7 @@ export default function MobileProfile({ user, setUser, vehicles, theme, setTheme
   };
 
   const logout = async () => {
-    try { await api('/session', { method: 'DELETE' }); } catch { /* сессии уже нет */ }
+    await apiLogout();
     window.location.reload();
   };
 
