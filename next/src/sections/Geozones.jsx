@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import LeafletMap from '../LeafletMap';
-import { api, getJson } from '../api';
+import { api, getJson, updateMe } from '../api';
 import { Blueprint } from '../ui';
 
 
@@ -13,7 +13,7 @@ function buildPolygonArea(points) {
   return `POLYGON((${thinned.map((p) => `${p.latitude.toFixed(5)} ${p.longitude.toFixed(5)}`).join(', ')}))`;
 }
 
-export default function Geozones({ user }) {
+export default function Geozones({ user, setUser }) {
   const [zones, setZones] = useState(null);
   const [drawing, setDrawing] = useState(false);
   const [points, setPoints] = useState([]);
@@ -38,6 +38,14 @@ export default function Geozones({ user }) {
     } finally {
       setBusy(false);
     }
+  };
+
+  // критичность выхода из зоны: critical | normal (по умолчанию) | hidden
+  const exitPrefs = user?.prefs?.geofenceExit ?? {};
+  const setExitMode = (zoneId, mode) => {
+    const next = { ...exitPrefs };
+    if (mode === 'normal') delete next[zoneId]; else next[zoneId] = mode;
+    updateMe({ prefs: { ...(user?.prefs ?? {}), geofenceExit: next } }).then(setUser).catch(() => {});
   };
 
   const remove = async (zone) => {
@@ -101,6 +109,29 @@ export default function Geozones({ user }) {
               )}
             </div>
             {zone.description && <div className="text-muted" style={{ fontSize: 12 }}>{zone.description}</div>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }} onClick={(e) => e.stopPropagation()}>
+              <span className="text-muted" style={{ fontSize: 11 }}>Выход:</span>
+              <div className="seg" style={{ display: 'flex' }}>
+                {[['critical', 'Критично'], ['normal', 'Обычно'], ['hidden', 'Скрыть']].map(([mode, label]) => {
+                  const active = (exitPrefs[zone.id] ?? 'normal') === mode;
+                  return (
+                    <span
+                      key={mode}
+                      className="seg-opt"
+                      onClick={() => setExitMode(zone.id, mode)}
+                      style={{
+                        padding: '3px 8px', fontSize: 11,
+                        ...(active ? (mode === 'critical'
+                          ? { background: '#c0392b', color: '#fff' }
+                          : { background: 'var(--color-accent)', color: 'var(--color-bg)' }) : {}),
+                      }}
+                    >
+                      {label}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
           </Blueprint>
         ))}
       </div>

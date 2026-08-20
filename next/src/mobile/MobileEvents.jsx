@@ -24,7 +24,7 @@ function timeLabel(value) {
   return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
 }
 
-export default function MobileEvents({ vehicles }) {
+export default function MobileEvents({ vehicles, user }) {
   const [events, setEvents] = useState(null);
   const [zoneNames, setZoneNames] = useState(null);
 
@@ -51,10 +51,11 @@ export default function MobileEvents({ vehicles }) {
     <div style={{ flex: 1, overflow: 'auto', padding: 'calc(8px + env(safe-area-inset-top)) 12px 8px', display: 'flex', flexDirection: 'column', gap: 8 }}>
       {events === null && <div className="text-muted" style={{ padding: 12, fontSize: 13 }}>Загрузка…</div>}
       {events?.length === 0 && <div className="text-muted" style={{ padding: 12, fontSize: 13 }}>За последние 48 часов событий нет</div>}
-      {events?.map((event) => {
+      {events?.filter((e) => !(e.type === 'geofenceExit' && user?.prefs?.geofenceExit?.[e.geofenceId] === 'hidden')).map((event) => {
         const [type, color, text] = KINDS[event.type] ?? [event.type, '#8a9699', () => ''];
+        const zoneCritical = event.type === 'geofenceExit' && user?.prefs?.geofenceExit?.[event.geofenceId] === 'critical';
         return (
-          <div key={event.id} style={{ border: '1px solid var(--color-divider)', borderRadius: 10, padding: '11px 12px', display: 'flex', flexDirection: 'column', gap: 4, minHeight: 44 }}>
+          <div key={event.id} style={{ border: zoneCritical ? '1px solid #c0392b' : '1px solid var(--color-divider)', background: zoneCritical ? 'color-mix(in srgb, #c0392b 6%, transparent)' : 'transparent', borderRadius: 10, padding: '11px 12px', display: 'flex', flexDirection: 'column', gap: 4, minHeight: 44 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <span style={{ fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', padding: '2px 8px', border: `1px solid ${color}`, color }}>{type}</span>
               <span className="text-muted" style={{ marginLeft: 'auto', fontSize: 11 }}>{timeLabel(event.eventTime)}</span>

@@ -96,13 +96,17 @@ export default function Alerts({ allVehicles, focusOnMap, user, setUser }) {
     updateMe({ prefs: { ...(user?.prefs ?? {}), alerts: next } }).then(setUser).catch(() => {});
   };
 
+  // зональные настройки выхода: critical | normal | hidden (переопределяют тип «Выезд из геозоны»)
+  const zoneExitPrefs = user?.prefs?.geofenceExit ?? {};
+  const zoneExitMode = (e) => (e.type === 'geofenceExit' ? zoneExitPrefs[e.geofenceId] : undefined);
+
   const filtered = useMemo(() => {
     if (!events) return null;
-    let list = events.filter((e) => prefFor(e.type).show);
+    let list = events.filter((e) => (zoneExitMode(e) === 'hidden' ? false : prefFor(e.type).show || zoneExitMode(e) === 'critical'));
     if (kind) list = list.filter((e) => (EVENT_KINDS[e.type]?.type ?? e.type) === kind);
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, kind, prefs]);
+  }, [events, kind, prefs, user?.prefs]);
 
   return (
     <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 900 }}>
@@ -169,7 +173,8 @@ export default function Alerts({ allVehicles, focusOnMap, user, setUser }) {
       {filtered?.length === 0 && <div className="text-muted">Событий за выбранный период нет</div>}
       {filtered?.map((event) => {
         const k = EVENT_KINDS[event.type] ?? { type: event.type, tagClass: 'tag tag-neutral', text: () => '' };
-        const critical = prefFor(event.type).critical;
+        const zoneMode = zoneExitMode(event);
+        const critical = zoneMode ? zoneMode === 'critical' : prefFor(event.type).critical;
         return (
           <div key={event.id} style={{
             display: 'flex', gap: 12, alignItems: 'center', padding: '10px 12px', borderRadius: 10,
