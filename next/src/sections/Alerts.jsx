@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { formatTime, getAlerts, getEvents, getJson, localDate } from '../api';
+import { alarmName, formatTime, getAlerts, getEvents, getJson, localDate, overspeedText } from '../api';
 
 const EVENT_KINDS = {
-  deviceOverspeed: { type: 'Скорость', tagClass: 'tag tag-outline', text: () => 'превышение скорости' },
+  deviceOverspeed: { type: 'Скорость', tagClass: 'tag tag-outline', text: (e) => overspeedText(e) },
   geofenceExit: { type: 'Геозона', tagClass: 'tag tag-accent-2', text: (e, zones) => `выезд из геозоны${zones?.[e.geofenceId] ? ` «${zones[e.geofenceId]}»` : ''}` },
   geofenceEnter: { type: 'Геозона', tagClass: 'tag tag-accent-2', text: (e, zones) => `въезд в геозону${zones?.[e.geofenceId] ? ` «${zones[e.geofenceId]}»` : ''}` },
   deviceFuelDrop: { type: 'Топливо', tagClass: 'tag tag-outline', text: () => 'резкое падение уровня топлива' },
@@ -13,7 +13,7 @@ const EVENT_KINDS = {
   deviceStopped: { type: 'Движение', tagClass: 'tag tag-accent-2', text: () => 'остановка' },
   ignitionOn: { type: 'Зажигание', tagClass: 'tag tag-accent', text: () => 'зажигание включено' },
   ignitionOff: { type: 'Зажигание', tagClass: 'tag tag-accent-2', text: () => 'зажигание выключено' },
-  alarm: { type: 'Тревога', tagClass: 'tag tag-outline', text: (e) => `тревога: ${e.attributes?.alarm ?? ''}` },
+  alarm: { type: 'Тревога', tagClass: 'tag tag-outline', text: (e) => `тревога: ${alarmName(e.attributes?.alarm)}` },
   fuelLow: { type: 'Топливо', tagClass: 'tag tag-outline', text: (e) => e.message },
   towing: { type: 'Эвакуатор', tagClass: 'tag tag-outline', text: (e) => e.message },
 };

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { getEvents, getJson } from '../api';
+import { alarmName, getEvents, getJson, overspeedText } from '../api';
 
 const KINDS = {
-  deviceOverspeed: ['Скорость', '#e8a13c', () => 'превышение скорости'],
+  deviceOverspeed: ['Скорость', '#e8a13c', (e) => overspeedText(e)],
   geofenceExit: ['Геозона', '#3aa4e4', (e, zones) => `выезд из геозоны${zones?.[e.geofenceId] ? ` «${zones[e.geofenceId]}»` : ''}`],
   geofenceEnter: ['Геозона', '#3aa4e4', (e, zones) => `въезд в геозону${zones?.[e.geofenceId] ? ` «${zones[e.geofenceId]}»` : ''}`],
   deviceFuelDrop: ['Топливо', '#e8a13c', () => 'резкое падение уровня топлива'],
@@ -13,7 +13,7 @@ const KINDS = {
   deviceStopped: ['Движение', '#3aa4e4', () => 'остановка'],
   ignitionOn: ['Зажигание', '#17bd9c', () => 'зажигание включено'],
   ignitionOff: ['Зажигание', '#3aa4e4', () => 'зажигание выключено'],
-  alarm: ['Тревога', '#e8a13c', (e) => `тревога: ${e.attributes?.alarm ?? ''}`],
+  alarm: ['Тревога', '#e8a13c', (e) => `тревога: ${alarmName(e.attributes?.alarm)}`],
 };
 
 function timeLabel(value) {

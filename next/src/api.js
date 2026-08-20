@@ -85,6 +85,32 @@ export const getEvents = (deviceIds, from, to) =>
 
 export const KNOTS_TO_KMH = 1.852;
 
+// человекочитаемые названия тревог Traccar (attributes.alarm)
+export const ALARM_NAMES = {
+  hardAcceleration: 'резкое ускорение',
+  hardBraking: 'резкое торможение',
+  hardCornering: 'резкий поворот',
+  overspeed: 'превышение скорости',
+  powerCut: 'отключение питания',
+  powerRestored: 'питание восстановлено',
+  lowBattery: 'низкий заряд батареи',
+  lowPower: 'низкое питание',
+  vibration: 'вибрация',
+  tow: 'буксировка',
+  sos: 'SOS',
+};
+export const alarmName = (alarm) => ALARM_NAMES[alarm] ?? alarm ?? '';
+
+// «превышение скорости — 92 км/ч при лимите 60 км/ч»
+export function overspeedText(event) {
+  const a = event.attributes ?? {};
+  const speed = typeof a.speed === 'number' ? Math.round(a.speed * KNOTS_TO_KMH) : null;
+  const limit = typeof a.speedLimit === 'number' ? Math.round(a.speedLimit * KNOTS_TO_KMH) : null;
+  if (speed != null && limit != null) return `превышение скорости — ${speed} км/ч при лимите ${limit} км/ч`;
+  if (limit != null) return `превышение скорости — лимит ${limit} км/ч`;
+  return 'превышение скорости';
+}
+
 export function vehicleState(device, position) {
   const speed = position ? Math.round(position.speed * KNOTS_TO_KMH) : 0;
   if (device.status !== 'online') return { st: 'off', speed: 0 };
