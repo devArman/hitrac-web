@@ -25,7 +25,7 @@ export default function Login({ onLogin }) {
     <div style={{ height: '100vh', display: 'grid', placeItems: 'center', background: 'var(--color-bg)' }}>
       <Blueprint style={{ width: 'min(360px, 90vw)', padding: 28, display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="/next/logo.svg" alt="HiTrack" style={{ width: 38, height: 38 }} />
+          <img src="/logo.svg" alt="HiTrack" style={{ width: 38, height: 38 }} />
           <div>
             <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: 19, letterSpacing: '.04em' }}>HITRACK</div>
             <div style={{ fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', opacity: 0.55 }}>Кабинет клиента</div>

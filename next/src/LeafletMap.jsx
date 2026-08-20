@@ -34,7 +34,11 @@ export default function LeafletMap({ devices, positions, track, geofences, focus
       attribution: '© OpenStreetMap contributors',
     }).addTo(map);
     mapRef.current = map;
-    return () => map.remove();
+    // контейнер растягивается флексом после монтирования — без этого Leaflet
+    // рисует тайлы только на первоначальный размер
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(containerRef.current);
+    return () => { observer.disconnect(); map.remove(); };
   }, []);
 
   // маркеры устройств
