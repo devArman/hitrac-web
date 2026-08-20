@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { formatTime, getEvents } from '../api';
-import { AnnouncementsList } from '../Announcements';
 
 const EVENT_KINDS = {
   deviceOverspeed: { type: 'Скорость', tagClass: 'tag tag-outline', text: () => 'превышение скорости' },
@@ -37,7 +36,6 @@ export default function Alerts({ allVehicles, focusOnMap }) {
 
   return (
     <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 860 }}>
-      <AnnouncementsList />
       {events.length === 0 && <div className="text-muted">За последние 48 часов событий нет</div>}
       {events.map((event) => {
         const kind = EVENT_KINDS[event.type] ?? { type: event.type, tagClass: 'tag tag-neutral', text: () => '' };

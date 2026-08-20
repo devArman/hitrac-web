@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import LeafletMap from '../LeafletMap';
 import { fuelLevel, getRoute, getSummary, startOfDay } from '../api';
 import { Icon } from '../ui';
+import { AnnouncementsBell } from '../Announcements';
 
-export default function MobileMap({ user, vehicles, devices, positions, openDetail, trackFor, clearTrack }) {
+export default function MobileMap({ user, vehicles, devices, positions, openDetail, trackFor, clearTrack, openAnnouncements }) {
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState('');
   const [focus, setFocus] = useState({ id: null, seq: 0 });
@@ -80,6 +81,9 @@ export default function MobileMap({ user, vehicles, devices, positions, openDeta
             </div>
           )}
         </div>
+        <span style={{ width: 42, height: 42, flex: 'none', display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, var(--color-bg) 92%, transparent)', border: '1px solid var(--color-divider)' }}>
+          <AnnouncementsBell onClick={openAnnouncements} size={18} />
+        </span>
         <span style={{ width: 42, height: 42, flex: 'none', display: 'grid', placeItems: 'center', background: 'var(--grad-brand)', color: '#fff', fontFamily: 'var(--font-heading)' }}>
           {initials}
         </span>

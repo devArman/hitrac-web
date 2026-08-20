@@ -59,7 +59,7 @@ export function AnnouncementsBell({ onClick, size = 20 }) {
       style={{ position: 'relative', padding: 8, color: 'inherit' }}
       title="Объявления"
     >
-      <Icon name="bell" size={size} />
+      <Icon name="megaphone" size={size} />
       {unreadCount > 0 && (
         <span style={{
           position: 'absolute', top: 0, right: 0, minWidth: 16, height: 16,
@@ -98,14 +98,13 @@ export function AnnouncementsModal() {
   );
 }
 
-/** Список объявлений — блок для раздела «Уведомления». */
-export function AnnouncementsList() {
+function AnnouncementItems() {
   const { announcements } = useAnnouncements();
-  if (!announcements.length) return null;
-
+  if (!announcements.length) {
+    return <div className="text-muted" style={{ fontSize: 13, padding: 8 }}>Объявлений пока нет</div>;
+  }
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-      <h6 style={{ margin: 0 }}>Объявления</h6>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {announcements.map((a) => (
         <Blueprint key={a.id} style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -116,6 +115,36 @@ export function AnnouncementsList() {
           <div style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{a.body}</div>
         </Blueprint>
       ))}
+    </div>
+  );
+}
+
+/** Выпадающая панель объявлений (десктоп) — открывается рупором в шапке. */
+export function AnnouncementsPanel({ onClose }) {
+  return (
+    <>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 1500 }} onClick={onClose} />
+      <div style={{
+        position: 'absolute', top: '100%', right: 0, marginTop: 8, width: 380, maxHeight: '70vh',
+        overflow: 'auto', zIndex: 1600, background: 'var(--color-bg)',
+        border: '1px solid var(--color-divider)', boxShadow: 'var(--shadow-lg)', padding: 12,
+      }}>
+        <h6 style={{ margin: '0 0 8px' }}>Объявления</h6>
+        <AnnouncementItems />
+      </div>
+    </>
+  );
+}
+
+/** Полноэкранный список объявлений (мобильный). */
+export function AnnouncementsScreen({ onClose }) {
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 1300, background: 'var(--color-bg)', display: 'flex', flexDirection: 'column', gap: 10, padding: 'calc(10px + env(safe-area-inset-top)) 12px 12px', overflow: 'auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button className="btn btn-ghost" onClick={onClose} style={{ padding: 6 }}><Icon name="arrow-left" size={18} /></button>
+        <b style={{ fontSize: 17, fontFamily: 'var(--font-heading)', letterSpacing: '.02em' }}>Объявления</b>
+      </div>
+      <AnnouncementItems />
     </div>
   );
 }

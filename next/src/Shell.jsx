@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ST, vehicleState } from './api';
 import { Icon } from './ui';
-import { AnnouncementsBell, AnnouncementsModal } from './Announcements';
+import { AnnouncementsBell, AnnouncementsModal, AnnouncementsPanel } from './Announcements';
 import MapView from './sections/MapView';
 import Fleet from './sections/Fleet';
 import Trips from './sections/Trips';
@@ -32,6 +32,7 @@ export default function Shell({ user, setUser, devices, positions }) {
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') ?? 'light');
   const [search, setSearch] = useState('');
   const [focus, setFocus] = useState({ id: null, seq: 0 });
+  const [showAnnouncements, setShowAnnouncements] = useState(false);
 
   useEffect(() => { localStorage.setItem('theme', theme); }, [theme]);
 
@@ -127,7 +128,10 @@ export default function Shell({ user, setUser, devices, positions }) {
             {online} на связи
           </span>
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <AnnouncementsBell onClick={() => setSection('alerts')} />
+            <div style={{ position: 'relative' }}>
+              <AnnouncementsBell onClick={() => setShowAnnouncements((v) => !v)} />
+              {showAnnouncements && <AnnouncementsPanel onClose={() => setShowAnnouncements(false)} />}
+            </div>
             <input className="input" placeholder="Поиск объекта…" style={{ width: 220, minHeight: 32 }} value={search} onChange={(e) => setSearch(e.target.value)} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
               <span style={{ width: 28, height: 28, display: 'grid', placeItems: 'center', background: 'var(--grad-brand)', color: '#fff', fontFamily: 'var(--font-heading)', fontSize: 13 }}>

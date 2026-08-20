@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ST, vehicleState } from '../api';
 import { Icon } from '../ui';
-import { AnnouncementsModal, useAnnouncements } from '../Announcements';
+import { AnnouncementsModal, AnnouncementsScreen } from '../Announcements';
 import MobileMap from './MobileMap';
 import MobileObjects from './MobileObjects';
 import MobileDetail from './MobileDetail';
@@ -39,12 +39,12 @@ export default function MobileShell({ user, setUser, devices, positions }) {
     return list;
   }, [devices, positions]);
 
-  const { unreadCount } = useAnnouncements();
+  const [showAnnouncements, setShowAnnouncements] = useState(false);
 
   const openDetail = (id) => { setDetailId(id); };
   const buildTrack = (id) => { setTrackFor(id); setDetailId(null); setTab('map'); };
 
-  const common = { user, setUser, vehicles, devices, positions, openDetail, theme, setTheme };
+  const common = { user, setUser, vehicles, devices, positions, openDetail, theme, setTheme, openAnnouncements: () => setShowAnnouncements(true) };
 
   return (
     <div data-theme={theme} style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)', overflow: 'hidden' }}>
@@ -54,6 +54,7 @@ export default function MobileShell({ user, setUser, devices, positions }) {
         {tab === 'objects' && <MobileObjects {...common} />}
         {tab === 'events' && <MobileEvents {...common} />}
         {tab === 'profile' && <MobileProfile {...common} />}
+        {showAnnouncements && <AnnouncementsScreen onClose={() => setShowAnnouncements(false)} />}
         {detailId != null && (
           <MobileDetail
             {...common}
@@ -78,19 +79,7 @@ export default function MobileShell({ user, setUser, devices, positions }) {
               color: tab === id ? 'var(--color-accent)' : 'color-mix(in srgb, var(--color-text) 45%, transparent)',
             }}
           >
-            <span style={{ position: 'relative' }}>
-              <Icon name={icon} size={20} />
-              {id === 'events' && unreadCount > 0 && (
-                <span style={{
-                  position: 'absolute', top: -4, right: -8, minWidth: 14, height: 14,
-                  padding: '0 3px', borderRadius: 7, background: 'var(--color-accent)',
-                  color: 'var(--color-bg)', fontSize: 9, fontWeight: 700,
-                  display: 'grid', placeItems: 'center', lineHeight: 1,
-                }}>
-                  {unreadCount}
-                </span>
-              )}
-            </span>
+            <Icon name={icon} size={20} />
             {label}
           </div>
         ))}

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { getEvents } from '../api';
-import { AnnouncementsList } from '../Announcements';
 
 const KINDS = {
   deviceOverspeed: ['Скорость', '#e8a13c', () => 'превышение скорости'],
@@ -42,7 +41,6 @@ export default function MobileEvents({ vehicles }) {
 
   return (
     <div style={{ flex: 1, overflow: 'auto', padding: 'calc(8px + env(safe-area-inset-top)) 12px 8px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <AnnouncementsList />
       {events === null && <div className="text-muted" style={{ padding: 12, fontSize: 13 }}>Загрузка…</div>}
       {events?.length === 0 && <div className="text-muted" style={{ padding: 12, fontSize: 13 }}>За последние 48 часов событий нет</div>}
       {events?.map((event) => {
