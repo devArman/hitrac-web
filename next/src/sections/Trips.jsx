@@ -19,14 +19,21 @@ export default function Trips({ allVehicles }) {
   const [playSpeed, setPlaySpeed] = useState(60);
   const [playTime, setPlayTime] = useState(null); // мс epoch виртуального времени
   const playTimer = useRef(null);
+  const autoPlayRef = useRef(false); // «▶ на карточке»: запустить сразу после загрузки трека
 
   const trackStart = track?.length ? new Date(track[0].fixTime).getTime() : null;
   const trackEnd = track?.length ? new Date(track[track.length - 1].fixTime).getTime() : null;
 
   useEffect(() => {
-    // новый трек — сбрасываем плеер
-    setPlaying(false);
-    setPlayTime(null);
+    // новый трек: либо автозапуск (нажали ▶ на карточке), либо сброс плеера
+    if (autoPlayRef.current && track?.length > 1) {
+      autoPlayRef.current = false;
+      setPlayTime(new Date(track[0].fixTime).getTime());
+      setPlaying(true);
+    } else {
+      setPlaying(false);
+      setPlayTime(null);
+    }
   }, [track]);
 
   useEffect(() => {
@@ -84,6 +91,19 @@ export default function Trips({ allVehicles }) {
       .finally(() => setLoading(false));
   }, [selected, range]);
 
+  const playTrip = async (trip, index) => {
+    if (selectedTrip === index && track?.length > 1) {
+      // маршрут уже загружен — просто пуск/пауза
+      if (!playing && (playTime == null || playTime >= trackEnd)) setPlayTime(trackStart);
+      setPlaying(!playing);
+      return;
+    }
+    setSelectedTrip(index);
+    autoPlayRef.current = true;
+    const route = await getRoute(selected, new Date(trip.startTime), new Date(trip.endTime)).catch(() => []);
+    setTrack(route.length > 1 ? route : null);
+  };
+
   // клик по поездке — на карте только её маршрут; повторный клик — снова весь день
   const pickTrip = async (trip, index) => {
     if (selectedTrip === index) {
@@ -120,45 +140,6 @@ export default function Trips({ allVehicles }) {
         )}
         {loading && <div className="text-muted" style={{ fontSize: 13 }}>Загрузка…</div>}
         {!loading && trips.length === 0 && <div className="text-muted" style={{ fontSize: 13 }}>Поездок не найдено</div>}
-        {track && track.length > 1 && (
-          <div className="blueprint" style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <i className="corner tl" /><i className="corner tr" /><i className="corner bl" /><i className="corner br" />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button
-                className="btn btn-primary"
-                style={{ padding: '6px 10px' }}
-                onClick={() => {
-                  if (!playing && (playTime == null || playTime >= trackEnd)) setPlayTime(trackStart);
-                  setPlaying(!playing);
-                }}
-              >
-                <Icon name={playing ? 'pause' : 'play'} size={14} />
-              </button>
-              <div className="seg" style={{ display: 'flex' }}>
-                {[10, 60, 300].map((s) => (
-                  <span key={s} className="seg-opt" onClick={() => setPlaySpeed(s)}
-                    style={{ padding: '4px 8px', fontSize: 12, ...(playSpeed === s ? { background: 'var(--color-accent)', color: 'var(--color-bg)' } : {}) }}>
-                    ×{s}
-                  </span>
-                ))}
-              </div>
-              {playMarker && (
-                <span className="text-muted" style={{ marginLeft: 'auto', fontSize: 12 }}>
-                  {new Date(playTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })} · {playMarker.speed} км/ч
-                </span>
-              )}
-            </div>
-            <input
-              type="range"
-              min={trackStart}
-              max={trackEnd}
-              step={1000}
-              value={playTime ?? trackStart}
-              onChange={(e) => { setPlayTime(Number(e.target.value)); }}
-              style={{ width: '100%', accentColor: 'var(--color-accent)' }}
-            />
-          </div>
-        )}
         {trips.map((trip, index) => (
           <Blueprint
             key={index}
@@ -179,6 +160,40 @@ export default function Trips({ allVehicles }) {
             <div className="text-muted" style={{ fontSize: 12 }}>
               Макс. {Math.round(trip.maxSpeed * KNOTS_TO_KMH)} км/ч · {Math.round(trip.duration / 60000)} мин
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }} onClick={(e) => e.stopPropagation()}>
+              <button className="btn btn-primary" style={{ padding: '4px 8px' }} onClick={() => playTrip(trip, index)}>
+                <Icon name={selectedTrip === index && playing ? 'pause' : 'play'} size={12} />
+              </button>
+              <div className="seg" style={{ display: 'flex' }}>
+                {[10, 60, 300].map((sp) => (
+                  <span
+                    key={sp}
+                    className="seg-opt"
+                    onClick={() => setPlaySpeed(sp)}
+                    style={{ padding: '3px 7px', fontSize: 11, ...(playSpeed === sp ? { background: 'var(--color-accent)', color: 'var(--color-bg)' } : {}) }}
+                  >
+                    ×{sp}
+                  </span>
+                ))}
+              </div>
+              {selectedTrip === index && playMarker && (
+                <span className="text-muted" style={{ marginLeft: 'auto', fontSize: 11 }}>
+                  {new Date(playTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })} · {playMarker.speed} км/ч
+                </span>
+              )}
+            </div>
+            {selectedTrip === index && playTime != null && trackStart != null && (
+              <input
+                type="range"
+                min={trackStart}
+                max={trackEnd}
+                step={1000}
+                value={playTime}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => setPlayTime(Number(e.target.value))}
+                style={{ width: '100%', accentColor: 'var(--color-accent)' }}
+              />
+            )}
           </Blueprint>
         ))}
       </div>
