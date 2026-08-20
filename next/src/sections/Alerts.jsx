@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { formatTime, getEvents } from '../api';
+import { useEffect, useMemo, useState } from 'react';
+import { formatTime, getEvents, localDate } from '../api';
 
 const EVENT_KINDS = {
   deviceOverspeed: { type: 'Скорость', tagClass: 'tag tag-outline', text: () => 'превышение скорости' },
@@ -16,34 +16,69 @@ const EVENT_KINDS = {
   alarm: { type: 'Тревога', tagClass: 'tag tag-outline', text: (e) => `тревога: ${e.attributes?.alarm ?? ''}` },
 };
 
+const KIND_OPTIONS = [...new Set(Object.values(EVENT_KINDS).map((k) => k.type))];
+
 export default function Alerts({ allVehicles, focusOnMap }) {
   const [events, setEvents] = useState(null);
+  const [deviceId, setDeviceId] = useState('');
+  const [kind, setKind] = useState('');
+  const [from, setFrom] = useState(() => localDate(new Date(Date.now() - 2 * 86400000)));
+  const [to, setTo] = useState(() => localDate());
 
   useEffect(() => {
-    const ids = allVehicles.map((v) => v.device.id);
+    const ids = deviceId ? [Number(deviceId)] : allVehicles.map((v) => v.device.id);
     if (!ids.length) { setEvents([]); return; }
-    const from = new Date(Date.now() - 48 * 3600 * 1000);
-    getEvents(ids, from, new Date())
-      .then((list) => setEvents(list.sort((a, b) => new Date(b.eventTime) - new Date(a.eventTime)).slice(0, 60)))
+    setEvents(null);
+    getEvents(ids, new Date(`${from}T00:00:00`), new Date(`${to}T23:59:59`))
+      .then((list) => setEvents(list.sort((a, b) => new Date(b.eventTime) - new Date(a.eventTime)).slice(0, 200)))
       .catch(() => setEvents([]));
-    // события за 48 часов; повтор, когда приехал список машин (прямой заход по URL)
+    // повтор при смене фильтров и когда приехал список машин (прямой заход по URL)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allVehicles.length > 0]);
+  }, [allVehicles.length > 0, deviceId, from, to]);
 
   const nameById = Object.fromEntries(allVehicles.map((v) => [v.device.id, v.name]));
 
-  if (events === null) return <div className="text-muted" style={{ padding: 20 }}>Загрузка…</div>;
+  const filtered = useMemo(() => {
+    if (!events) return null;
+    if (!kind) return events;
+    return events.filter((e) => (EVENT_KINDS[e.type]?.type ?? e.type) === kind);
+  }, [events, kind]);
 
   return (
-    <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 860 }}>
-      {events.length === 0 && <div className="text-muted">За последние 48 часов событий нет</div>}
-      {events.map((event) => {
-        const kind = EVENT_KINDS[event.type] ?? { type: event.type, tagClass: 'tag tag-neutral', text: () => '' };
+    <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 900 }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <div className="field" style={{ width: 190 }}>
+          <label>Объект</label>
+          <select className="input" value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>
+            <option value="">Все объекты</option>
+            {allVehicles.map((v) => <option key={v.device.id} value={v.device.id}>{v.name}</option>)}
+          </select>
+        </div>
+        <div className="field" style={{ width: 170 }}>
+          <label>Событие</label>
+          <select className="input" value={kind} onChange={(e) => setKind(e.target.value)}>
+            <option value="">Все события</option>
+            {KIND_OPTIONS.map((k) => <option key={k} value={k}>{k}</option>)}
+          </select>
+        </div>
+        <div className="field" style={{ width: 160 }}>
+          <label>С</label>
+          <input className="input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+        </div>
+        <div className="field" style={{ width: 160 }}>
+          <label>По</label>
+          <input className="input" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+        </div>
+      </div>
+      {filtered === null && <div className="text-muted">Загрузка…</div>}
+      {filtered?.length === 0 && <div className="text-muted">Событий за выбранный период нет</div>}
+      {filtered?.map((event) => {
+        const k = EVENT_KINDS[event.type] ?? { type: event.type, tagClass: 'tag tag-neutral', text: () => '' };
         return (
           <div key={event.id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '10px 12px', border: '1px solid var(--color-divider)', borderRadius: 10 }}>
-            <span className={kind.tagClass} style={{ flex: 'none' }}>{kind.type}</span>
+            <span className={k.tagClass} style={{ flex: 'none' }}>{k.type}</span>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 14 }}><b>{nameById[event.deviceId] ?? `#${event.deviceId}`}</b> — {kind.text(event)}</div>
+              <div style={{ fontSize: 14 }}><b>{nameById[event.deviceId] ?? `#${event.deviceId}`}</b> — {k.text(event)}</div>
               <div className="text-muted" style={{ fontSize: 12 }}>{formatTime(event.eventTime)}</div>
             </div>
             <button className="btn btn-ghost" style={{ marginLeft: 'auto', fontSize: 12 }} onClick={() => focusOnMap(event.deviceId)}>На карте</button>
