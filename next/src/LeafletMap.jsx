@@ -23,6 +23,8 @@ function markerIcon(color) {
 export default function LeafletMap({ devices, positions, track, geofences, focusId, focusSeq, onMarkerClick, playMarker, onMapClick, drawPoints }) {
   const clickRef = useRef(onMarkerClick);
   clickRef.current = onMarkerClick;
+  // свежие devices/positions для содержимого попапа (генерируется при открытии)
+  const dataRef = useRef({ devices: null, positions: null });
   const mapClickRef = useRef(onMapClick);
   mapClickRef.current = onMapClick;
   const drawRef = useRef(null);
@@ -52,6 +54,7 @@ export default function LeafletMap({ devices, positions, track, geofences, focus
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !devices) return;
+    dataRef.current = { devices, positions };
     const markers = markersRef.current;
     const seen = new Set();
     Object.values(devices).forEach((device) => {
@@ -65,6 +68,12 @@ export default function LeafletMap({ devices, positions, track, geofences, focus
       let marker = markers.get(device.id);
       if (!marker) {
         marker = L.marker(latlng, { icon: markerIcon(ST[st].dot) }).addTo(map).bindTooltip(label);
+        marker.bindPopup(() => {
+          const d = dataRef.current.devices?.[device.id] ?? device;
+          const p = dataRef.current.positions?.[device.id] ?? position;
+          return popupHtml(d, p);
+        }, { maxWidth: 380, minWidth: 320, autoPanPadding: [30, 30] });
+        marker.on('popupopen', () => loadPopupAddress(device.id, dataRef));
         marker.on('click', () => clickRef.current?.(device.id));
         markers.set(device.id, marker);
       } else {
@@ -173,6 +182,94 @@ export default function LeafletMap({ devices, positions, track, geofences, focus
   }, [focusId, focusSeq]);
 
   return <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />;
+}
+
+// ── попап объекта: адрес, телеметрия, датчики, связь ────────────────────────
+
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+));
+
+function fmtAgo(date) {
+  const s = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (s < 60) return `${s} с назад`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} мин ${s % 60} с назад`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} ч ${m % 60} мин назад`;
+  return `${Math.floor(h / 24)} дн назад`;
+}
+
+const chip = (html) => `<div style="background:#f2f4f6;border-radius:8px;padding:7px 10px;
+  font-size:12.5px;color:#25292c;min-width:0;overflow:hidden;text-overflow:ellipsis">${html}</div>`;
+const kv = (k, v) => chip(`<b style="font-weight:600">${esc(k)}:</b> ${esc(v)}`);
+
+function popupHtml(device, position) {
+  const attrs = position.attributes ?? {};
+  const speed = Math.round((position.speed ?? 0) * KNOTS_TO_KMH);
+  const fix = position.fixTime ? new Date(position.fixTime) : null;
+  const timeBlock = fix
+    ? `${esc(fmtAgo(fix))}<br>${esc(fix.toLocaleDateString('ru-RU'))} ${esc(fix.toLocaleTimeString('ru-RU'))}`
+    : '';
+
+  // телеметрия: скорость / высота / спутники
+  const stats = [
+    chip(`&#128663; ${speed} км/ч`),
+    typeof position.altitude === 'number' ? chip(`&#9968; ${Math.round(position.altitude)} м`) : null,
+    typeof attrs.sat === 'number' ? chip(`&#128752; ${attrs.sat}`) : null,
+  ].filter(Boolean);
+
+  // датчики — показываем только то, что трекер реально прислал
+  const sensors = [];
+  if (attrs.ignition != null) sensors.push(kv('Зажигание', attrs.ignition ? 'Вкл' : 'Выкл'));
+  if (typeof attrs.power === 'number') sensors.push(kv('Напряжение', `${attrs.power.toFixed(2)} В`));
+  if (typeof attrs.fuelLiters === 'number') sensors.push(kv('Топливо', `${attrs.fuelLiters.toFixed(1)} л`));
+  const temp = attrs.deviceTemp ?? attrs.temp1 ?? attrs.temp;
+  if (typeof temp === 'number') sensors.push(kv('Температура', `${temp.toFixed(1)} °C`));
+
+  const conn = [];
+  if (device.model) conn.push(kv('Тип устройства', device.model));
+  const phone = device.phone || device.contact;
+  if (phone) conn.push(kv('Телефон', phone));
+
+  const gmaps = `https://maps.google.com/?q=${position.latitude},${position.longitude}`;
+  const address = position.address
+    ? esc(position.address)
+    : '<span style="color:#8a9699">Определяем адрес…</span>';
+
+  return `<div style="width:340px;max-width:75vw;font-family:inherit;display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;align-items:flex-start;gap:10px">
+      <div style="font-size:17px;font-weight:700;color:#141719">${esc(device.name)}</div>
+      <div style="margin-left:auto;text-align:right;font-size:11.5px;color:#8a9699;line-height:1.5;flex:none">${timeBlock}</div>
+    </div>
+    <div style="background:#f2f4f6;border-radius:8px;padding:8px 10px;display:flex;gap:8px;align-items:flex-start">
+      <div id="ht-addr-${device.id}" style="font-size:12.5px;color:#25292c;line-height:1.45;min-width:0">${address}</div>
+      <a href="${gmaps}" target="_blank" rel="noreferrer" title="Открыть в Google Maps"
+         style="margin-left:auto;flex:none;color:#0c7fc3;text-decoration:none;font-size:14px">&#8599;</a>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(${stats.length || 1},1fr);gap:8px">${stats.join('')}</div>
+    ${sensors.length ? `<div>
+      <div style="font-size:12.5px;font-weight:700;color:#141719;margin-bottom:6px">Датчики:</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${sensors.join('')}</div>
+    </div>` : ''}
+    ${conn.length ? `<div>
+      <div style="font-size:12.5px;font-weight:700;color:#141719;margin-bottom:6px">Связь:</div>
+      <div style="display:flex;flex-direction:column;gap:8px">${conn.join('')}</div>
+    </div>` : ''}
+  </div>`;
+}
+
+// адрес — из позиции Traccar, иначе обратный геокодинг Nominatim (по клику)
+function loadPopupAddress(deviceId, dataRef) {
+  const p = dataRef.current.positions?.[deviceId];
+  if (!p || p.address) return;
+  fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${p.latitude}&lon=${p.longitude}&accept-language=hy&zoom=17`)
+    .then((r) => r.json())
+    .then((j) => {
+      const el = document.getElementById(`ht-addr-${deviceId}`);
+      if (el && j?.display_name) el.textContent = j.display_name;
+    })
+    .catch(() => {});
 }
 
 // направление между двумя точками, градусы от севера
