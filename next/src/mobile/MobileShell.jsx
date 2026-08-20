@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ST, vehicleState } from '../api';
 import { Icon } from '../ui';
+import { AnnouncementsModal } from '../Announcements';
 import MobileMap from './MobileMap';
 import MobileObjects from './MobileObjects';
 import MobileDetail from './MobileDetail';
@@ -45,6 +46,7 @@ export default function MobileShell({ user, setUser, devices, positions }) {
 
   return (
     <div data-theme={theme} style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)', overflow: 'hidden' }}>
+      <AnnouncementsModal />
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
         {tab === 'map' && <MobileMap {...common} trackFor={trackFor} clearTrack={() => setTrackFor(null)} />}
         {tab === 'objects' && <MobileObjects {...common} />}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ST, vehicleState } from './api';
 import { Icon } from './ui';
+import { AnnouncementsModal } from './Announcements';
 import MapView from './sections/MapView';
 import Fleet from './sections/Fleet';
 import Trips from './sections/Trips';
@@ -74,6 +75,7 @@ export default function Shell({ user, setUser, devices, positions }) {
 
   return (
     <div data-theme={theme} style={{ display: 'flex', height: '100vh', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)', overflow: 'hidden' }}>
+      <AnnouncementsModal />
       {/* sidebar */}
       <div style={{ width: 216, flex: 'none', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--color-divider)', background: 'var(--color-surface)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: '1px solid var(--color-divider)' }}>
