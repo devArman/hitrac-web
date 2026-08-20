@@ -1,31 +1,90 @@
 import { useEffect, useState } from 'react';
 import LeafletMap from '../LeafletMap';
-import { getJson } from '../api';
+import { api, getJson } from '../api';
 import { Blueprint } from '../ui';
 
-export default function Geozones() {
+export default function Geozones({ user }) {
   const [zones, setZones] = useState(null);
+  const [drawing, setDrawing] = useState(false);
+  const [points, setPoints] = useState([]);
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    getJson('/geofences').then(setZones).catch(() => setZones([]));
-  }, []);
+  const load = () => getJson('/geofences').then(setZones).catch(() => setZones([]));
+  useEffect(() => { load(); }, []);
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      const area = `POLYGON((${points.map((p) => `${p.latitude.toFixed(6)} ${p.longitude.toFixed(6)}`).join(', ')}))`;
+      await api('/geofences', { method: 'POST', body: JSON.stringify({ name: name.trim(), area }) });
+      setDrawing(false);
+      setPoints([]);
+      setName('');
+      load();
+    } catch (e) {
+      alert(`Не удалось сохранить: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (zone) => {
+    if (!window.confirm(`Удалить геозону «${zone.name}»?`)) return;
+    try {
+      await api(`/geofences/${zone.id}`, { method: 'DELETE' });
+      load();
+    } catch (e) {
+      alert(`Не удалось удалить: ${e.message}`);
+    }
+  };
 
   return (
     <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
       <div style={{ width: 360, flex: 'none', borderRight: '1px solid var(--color-divider)', overflow: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {!drawing && (
+          <button className="btn btn-primary" onClick={() => { setDrawing(true); setPoints([]); setName(''); }}>
+            + Новая геозона
+          </button>
+        )}
+        {drawing && (
+          <Blueprint style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <b style={{ fontSize: 14 }}>Новая геозона</b>
+            <div className="text-muted" style={{ fontSize: 12 }}>
+              Кликай по карте, чтобы поставить углы зоны (минимум 3 точки). Точек: {points.length}
+            </div>
+            <input className="input" placeholder="Название, например «Склад»" value={name} onChange={(e) => setName(e.target.value)} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-primary" style={{ flex: 1 }} disabled={busy || points.length < 3 || !name.trim()} onClick={save}>
+                {busy ? 'Сохранение…' : 'Сохранить'}
+              </button>
+              <button className="btn btn-secondary" onClick={() => setPoints(points.slice(0, -1))} disabled={!points.length}>↶</button>
+              <button className="btn btn-secondary" onClick={() => { setDrawing(false); setPoints([]); }}>Отмена</button>
+            </div>
+          </Blueprint>
+        )}
         {zones === null && <div className="text-muted" style={{ fontSize: 13 }}>Загрузка…</div>}
-        {zones?.length === 0 && <div className="text-muted" style={{ fontSize: 13 }}>Геозон пока нет — их настроит оператор HiTrack по вашей заявке</div>}
+        {zones?.length === 0 && <div className="text-muted" style={{ fontSize: 13 }}>Геозон пока нет — создай свою кнопкой выше</div>}
         {zones?.map((zone) => (
           <Blueprint key={zone.id} style={{ padding: 10, fontSize: 13 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <b>{zone.name}</b>
-              <span className="tag tag-accent-2" style={{ marginLeft: 'auto' }}>{zone.area.split(/[\s(]/)[0]}</span>
+              <span className={zone.shared ? 'tag tag-accent-2' : 'tag tag-accent'} style={{ marginLeft: 'auto' }}>
+                {zone.shared ? 'общая' : 'моя'}
+              </span>
+              {zone.own && (
+                <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => remove(zone)}>Удалить</button>
+              )}
             </div>
             {zone.description && <div className="text-muted" style={{ fontSize: 12 }}>{zone.description}</div>}
           </Blueprint>
         ))}
       </div>
-      <LeafletMap geofences={zones ?? []} />
+      <LeafletMap
+        geofences={zones ?? []}
+        onMapClick={drawing ? (p) => setPoints((prev) => [...prev, p]) : undefined}
+        drawPoints={drawing ? points : []}
+      />
     </div>
   );
 }

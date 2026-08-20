@@ -20,9 +20,12 @@ function markerIcon(color) {
  * devices/positions — карты по id; track — массив позиций; geofences — массив Traccar-геозон.
  * focusId — id устройства, к которому надо подлететь (меняется извне).
  */
-export default function LeafletMap({ devices, positions, track, geofences, focusId, focusSeq, onMarkerClick, playMarker }) {
+export default function LeafletMap({ devices, positions, track, geofences, focusId, focusSeq, onMarkerClick, playMarker, onMapClick, drawPoints }) {
   const clickRef = useRef(onMarkerClick);
   clickRef.current = onMarkerClick;
+  const mapClickRef = useRef(onMapClick);
+  mapClickRef.current = onMapClick;
+  const drawRef = useRef(null);
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef(new Map());
@@ -36,6 +39,7 @@ export default function LeafletMap({ devices, positions, track, geofences, focus
       maxZoom: 19,
       attribution: '© OpenStreetMap contributors',
     }).addTo(map);
+    map.on('click', (e) => mapClickRef.current?.({ latitude: e.latlng.lat, longitude: e.latlng.lng }));
     mapRef.current = map;
     // контейнер растягивается флексом после монтирования — без этого Leaflet
     // рисует тайлы только на первоначальный размер
@@ -125,6 +129,20 @@ export default function LeafletMap({ devices, positions, track, geofences, focus
       if (group.getLayers().length) map.fitBounds(group.getBounds().pad(0.2));
     }
   }, [track, geofences]);
+
+  // рисование новой геозоны: пунктирный контур по кликам
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    drawRef.current?.remove();
+    drawRef.current = null;
+    if (!drawPoints?.length) return;
+    const latlngs = drawPoints.map((p) => [p.latitude, p.longitude]);
+    drawRef.current = drawPoints.length >= 3
+      ? L.polygon(latlngs, { color: '#c0392b', weight: 2.5, dashArray: '6 6', fillOpacity: 0.06 })
+      : L.polyline(latlngs, { color: '#c0392b', weight: 2.5, dashArray: '6 6' });
+    drawRef.current.addTo(map);
+  }, [drawPoints]);
 
   // маркер воспроизведения поездки
   useEffect(() => {
