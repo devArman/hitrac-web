@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { formatTime, getAlerts, getEvents, localDate } from '../api';
+import { formatTime, getAlerts, getEvents, getJson, localDate } from '../api';
 
 const EVENT_KINDS = {
   deviceOverspeed: { type: 'Скорость', tagClass: 'tag tag-outline', text: () => 'превышение скорости' },
-  geofenceExit: { type: 'Геозона', tagClass: 'tag tag-accent-2', text: () => 'выезд из геозоны' },
-  geofenceEnter: { type: 'Геозона', tagClass: 'tag tag-accent-2', text: () => 'въезд в геозону' },
+  geofenceExit: { type: 'Геозона', tagClass: 'tag tag-accent-2', text: (e, zones) => `выезд из геозоны${zones?.[e.geofenceId] ? ` «${zones[e.geofenceId]}»` : ''}` },
+  geofenceEnter: { type: 'Геозона', tagClass: 'tag tag-accent-2', text: (e, zones) => `въезд в геозону${zones?.[e.geofenceId] ? ` «${zones[e.geofenceId]}»` : ''}` },
   deviceFuelDrop: { type: 'Топливо', tagClass: 'tag tag-outline', text: () => 'резкое падение уровня топлива' },
   deviceFuelIncrease: { type: 'Топливо', tagClass: 'tag tag-accent', text: () => 'заправка' },
   deviceOffline: { type: 'Связь', tagClass: 'tag tag-neutral', text: () => 'потеря связи' },
@@ -25,6 +25,14 @@ export default function Alerts({ allVehicles, focusOnMap }) {
   const [kind, setKind] = useState('');
   const [from, setFrom] = useState(() => localDate(new Date(Date.now() - 2 * 86400000)));
   const [to, setTo] = useState(() => localDate());
+  const [zoneNames, setZoneNames] = useState(null);
+
+  // имена геозон для текста событий «въезд/выезд»
+  useEffect(() => {
+    getJson('/geofences')
+      .then((zones) => setZoneNames(Object.fromEntries(zones.map((z) => [z.id, z.name]))))
+      .catch(() => setZoneNames({}));
+  }, []);
 
   useEffect(() => {
     const ids = deviceId ? [Number(deviceId)] : allVehicles.map((v) => v.device.id);
@@ -93,7 +101,7 @@ export default function Alerts({ allVehicles, focusOnMap }) {
           <div key={event.id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '10px 12px', border: '1px solid var(--color-divider)', borderRadius: 10 }}>
             <span className={k.tagClass} style={{ flex: 'none' }}>{k.type}</span>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 14 }}><b>{nameById[event.deviceId] ?? `#${event.deviceId}`}</b> — {k.text(event)}</div>
+              <div style={{ fontSize: 14 }}><b>{nameById[event.deviceId] ?? `#${event.deviceId}`}</b> — {k.text(event, zoneNames)}</div>
               <div className="text-muted" style={{ fontSize: 12 }}>{formatTime(event.eventTime)}</div>
             </div>
             <button className="btn btn-ghost" style={{ marginLeft: 'auto', fontSize: 12 }} onClick={() => focusOnMap(event.deviceId)}>На карте</button>

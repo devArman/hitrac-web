@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { getEvents } from '../api';
+import { getEvents, getJson } from '../api';
 
 const KINDS = {
   deviceOverspeed: ['Скорость', '#e8a13c', () => 'превышение скорости'],
-  geofenceExit: ['Геозона', '#3aa4e4', () => 'выезд из геозоны'],
-  geofenceEnter: ['Геозона', '#3aa4e4', () => 'въезд в геозону'],
+  geofenceExit: ['Геозона', '#3aa4e4', (e, zones) => `выезд из геозоны${zones?.[e.geofenceId] ? ` «${zones[e.geofenceId]}»` : ''}`],
+  geofenceEnter: ['Геозона', '#3aa4e4', (e, zones) => `въезд в геозону${zones?.[e.geofenceId] ? ` «${zones[e.geofenceId]}»` : ''}`],
   deviceFuelDrop: ['Топливо', '#e8a13c', () => 'резкое падение уровня топлива'],
   deviceFuelIncrease: ['Топливо', '#17bd9c', () => 'заправка'],
   deviceOffline: ['Связь', '#8a9699', () => 'потеря связи'],
@@ -26,6 +26,14 @@ function timeLabel(value) {
 
 export default function MobileEvents({ vehicles }) {
   const [events, setEvents] = useState(null);
+  const [zoneNames, setZoneNames] = useState(null);
+
+  // имена геозон для текста событий «въезд/выезд»
+  useEffect(() => {
+    getJson('/geofences')
+      .then((zones) => setZoneNames(Object.fromEntries(zones.map((z) => [z.id, z.name]))))
+      .catch(() => setZoneNames({}));
+  }, []);
 
   useEffect(() => {
     const ids = vehicles.map((v) => v.device.id);
@@ -51,7 +59,7 @@ export default function MobileEvents({ vehicles }) {
               <span style={{ fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', padding: '2px 8px', border: `1px solid ${color}`, color }}>{type}</span>
               <span className="text-muted" style={{ marginLeft: 'auto', fontSize: 11 }}>{timeLabel(event.eventTime)}</span>
             </div>
-            <div style={{ fontSize: 13.5 }}><b>{nameById[event.deviceId] ?? `#${event.deviceId}`}</b> — {text(event)}</div>
+            <div style={{ fontSize: 13.5 }}><b>{nameById[event.deviceId] ?? `#${event.deviceId}`}</b> — {text(event, zoneNames)}</div>
           </div>
         );
       })}
