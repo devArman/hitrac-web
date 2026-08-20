@@ -170,7 +170,8 @@ function bearing(a, b) {
 
 // Traccar WKT: CIRCLE (lat lon, r) | POLYGON ((lat lon, ...)) | LINESTRING (...)
 function parseArea(area) {
-  const style = { color: '#019178', weight: 2, fillOpacity: 0.08 };
+  // геозоны — красным, чтобы отличались от треков и маркеров
+  const style = { color: '#c0392b', weight: 2.5, fillOpacity: 0.08 };
   let m = area.match(/CIRCLE\s*\(\s*([\d.-]+)\s+([\d.-]+)\s*,\s*([\d.]+)\s*\)/i);
   if (m) return L.circle([+m[1], +m[2]], { radius: +m[3], ...style });
   m = area.match(/POLYGON\s*\(\(\s*(.+)\s*\)\)/i);
