@@ -15,6 +15,7 @@ const EVENT_KINDS = {
   ignitionOff: { type: 'Зажигание', tagClass: 'tag tag-accent-2', text: () => 'зажигание выключено' },
   alarm: { type: 'Тревога', tagClass: 'tag tag-outline', text: (e) => `тревога: ${e.attributes?.alarm ?? ''}` },
   fuelLow: { type: 'Топливо', tagClass: 'tag tag-outline', text: (e) => e.message },
+  towing: { type: 'Эвакуатор', tagClass: 'tag tag-outline', text: (e) => e.message },
 };
 
 const KIND_OPTIONS = [...new Set(Object.values(EVENT_KINDS).map((k) => k.type))];
