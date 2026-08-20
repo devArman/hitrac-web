@@ -83,6 +83,9 @@ export const getEvents = (deviceIds, from, to) =>
 
 // ── производные значения ──
 
+export const CATEGORY_EMOJI = { bicycle: '🚲', moped: '🛵', car: '🚗', truck: '🚚', boat: '🛥️' };
+export const deviceEmoji = (device) => CATEGORY_EMOJI[device?.category] ?? null;
+
 export const KNOTS_TO_KMH = 1.852;
 
 // человекочитаемые названия тревог Traccar (attributes.alarm)

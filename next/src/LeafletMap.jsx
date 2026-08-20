@@ -5,13 +5,18 @@ import { ST, vehicleState, KNOTS_TO_KMH } from './api';
 
 const YEREVAN = [40.1792, 44.4991];
 
-function markerIcon(color) {
+const CATEGORY_EMOJI = { bicycle: '🚲', moped: '🛵', car: '🚗', truck: '🚚', boat: '🛥️' };
+
+function markerIcon(color, category) {
+  const emoji = CATEGORY_EMOJI[category];
+  const size = emoji ? 28 : 22;
   return L.divIcon({
     className: '',
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
-    html: `<div style="width:22px;height:22px;border-radius:50%;background:${color};
-      border:2.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};
+      border:2.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);
+      display:flex;align-items:center;justify-content:center;font-size:15px;line-height:1">${emoji ?? ''}</div>`,
   });
 }
 
@@ -67,7 +72,7 @@ export default function LeafletMap({ devices, positions, track, geofences, focus
       const label = `<b>${device.name}</b><br>${ST[st].label}${st === 'move' ? ` · ${speed} км/ч` : ''}`;
       let marker = markers.get(device.id);
       if (!marker) {
-        marker = L.marker(latlng, { icon: markerIcon(ST[st].dot) }).addTo(map).bindTooltip(label);
+        marker = L.marker(latlng, { icon: markerIcon(ST[st].dot, device.category) }).addTo(map).bindTooltip(label);
         marker.bindPopup(() => {
           const d = dataRef.current.devices?.[device.id] ?? device;
           const p = dataRef.current.positions?.[device.id] ?? position;
@@ -78,7 +83,7 @@ export default function LeafletMap({ devices, positions, track, geofences, focus
         markers.set(device.id, marker);
       } else {
         marker.setLatLng(latlng);
-        marker.setIcon(markerIcon(ST[st].dot));
+        marker.setIcon(markerIcon(ST[st].dot, device.category));
         marker.setTooltipContent(label);
       }
     });

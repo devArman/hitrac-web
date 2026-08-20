@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fuelLevel, fuelLiters, getSummary, startOfDay } from '../api';
+import { deviceEmoji, fuelLevel, fuelLiters, getSummary, startOfDay } from '../api';
 import { Icon } from '../ui';
 
 export default function MobileObjects({ vehicles, openDetail }) {
@@ -27,7 +27,7 @@ export default function MobileObjects({ vehicles, openDetail }) {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: v.dotColor }} />
-              <b style={{ fontSize: 15 }}>{v.name}</b>
+              <b style={{ fontSize: 15 }}>{deviceEmoji(v.device) ? `${deviceEmoji(v.device)} ` : ''}{v.name}</b>
               <span className="text-muted" style={{ marginLeft: 'auto', fontSize: 12 }}>{v.plate}</span>
             </div>
             <div className="text-muted" style={{ display: 'flex', gap: 12, fontSize: 12, alignItems: 'center' }}>

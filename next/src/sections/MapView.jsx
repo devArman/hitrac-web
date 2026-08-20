@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import LeafletMap from '../LeafletMap';
-import { fuelLevel, fuelLiters } from '../api';
+import { deviceEmoji, fuelLevel, fuelLiters } from '../api';
 import { Blueprint, Icon, StatusDot } from '../ui';
 
 export default function MapView({ vehicles, devices, positions, focus }) {
@@ -21,7 +21,7 @@ export default function MapView({ vehicles, devices, positions, focus }) {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <StatusDot color={v.dotColor} />
-                <b style={{ fontSize: 14 }}>{v.name}</b>
+                <b style={{ fontSize: 14 }}>{deviceEmoji(v.device) ? `${deviceEmoji(v.device)} ` : ''}{v.name}</b>
                 <span className="text-muted" style={{ marginLeft: 'auto', fontSize: 12 }}>{v.plate}</span>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12 }}>

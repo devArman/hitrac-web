@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fuelLevel, fuelLiters, getDeviceSettings, getSummary, saveDeviceSettings, startOfDay } from '../api';
+import { deviceEmoji, fuelLevel, fuelLiters, getDeviceSettings, getSummary, saveDeviceSettings, startOfDay } from '../api';
 
 export default function Fleet({ vehicles, focusOnMap }) {
   const [kmToday, setKmToday] = useState({});
@@ -39,7 +39,7 @@ export default function Fleet({ vehicles, focusOnMap }) {
             const fuel = fuelLevel(v.position);
             return (
               <tr key={v.device.id}>
-                <td><b>{v.name}</b></td>
+                <td><b>{deviceEmoji(v.device) ? `${deviceEmoji(v.device)} ` : ''}{v.name}</b></td>
                 <td>{v.plate}</td>
                 <td><span className={v.tagClass}>{v.stLabel}</span></td>
                 <td>{v.speedLabel}</td>
