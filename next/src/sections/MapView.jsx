@@ -67,8 +67,7 @@ export default function MapView({ vehicles, devices, positions, focus, openTrips
     return vehicles.filter((v) => {
       if (groupSet && !groupSet.has(v.device.id)) return false;
       if (!query) return true;
-      return [v.name, v.plate, v.device.uniqueId, v.device.phone]
-        .some((s) => s && String(s).toLowerCase().includes(query));
+      return v.name.toLowerCase().includes(query);
     });
   }, [vehicles, groupSet, q]);
 
@@ -109,7 +108,7 @@ export default function MapView({ vehicles, devices, positions, focus, openTrips
             <Icon name="search" size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', opacity: 0.45 }} />
             <input
               className="input"
-              placeholder="Имя, номер, IMEI, SIM…"
+              placeholder="Поиск по названию…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               style={{ borderRadius: 999, minHeight: 34, paddingLeft: 32, fontSize: 13 }}
