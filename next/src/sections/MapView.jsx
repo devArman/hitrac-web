@@ -435,15 +435,27 @@ function DetailPanel({ v, stat, onClose, timeline, activeTrip, onLoadTimeline, o
           </span>
         </div>
       </div>
-      <div className="chip-row">
-        {lastDays().map(([value, weekday, label]) => (
-          <span key={value} className={`chip${day === value ? ' chip-active' : ''}`} onClick={() => setDay(value)}
-            style={{ flexDirection: 'column', gap: 0, lineHeight: 1.25, padding: '4px 12px' }}>
-            <span style={{ fontSize: 10, opacity: 0.7, textTransform: 'capitalize' }}>{weekday}</span>
-            <b style={{ fontSize: 12 }}>{label}</b>
-          </span>
-        ))}
-        {loadingStat && <span className="text-muted" style={{ fontSize: 12, alignSelf: 'center' }}>Загрузка…</span>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+        <input
+          type="date"
+          className="input"
+          value={day}
+          max={localDate()}
+          onChange={(e) => e.target.value && setDay(e.target.value)}
+          title="Выбрать любую дату"
+          style={{ width: 148, minHeight: 30, borderRadius: 999, fontSize: 12, padding: '2px 12px', flex: 'none' }}
+        />
+        {/* сегодня слева, дальше вглубь истории — прокруткой */}
+        <div className="chip-row">
+          {lastDays(30).slice().reverse().map(([value, weekday, label]) => (
+            <span key={value} className={`chip${day === value ? ' chip-active' : ''}`} onClick={() => setDay(value)}
+              style={{ flexDirection: 'column', gap: 0, lineHeight: 1.25, padding: '4px 12px' }}>
+              <span style={{ fontSize: 10, opacity: 0.7, textTransform: 'capitalize' }}>{weekday}</span>
+              <b style={{ fontSize: 12 }}>{label}</b>
+            </span>
+          ))}
+        </div>
+        {loadingStat && <span className="text-muted" style={{ fontSize: 12, flex: 'none' }}>Загрузка…</span>}
       </div>
       <div style={{ display: 'flex', gap: 14, fontSize: 12.5, flexWrap: 'wrap', alignItems: 'center' }}>
         {summary && (
