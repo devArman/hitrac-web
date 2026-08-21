@@ -8,7 +8,6 @@ import Trips from './sections/Trips';
 import Reports from './sections/Reports';
 import Alerts from './sections/Alerts';
 import Geozones from './sections/Geozones';
-import Engine from './sections/Engine';
 import Settings from './sections/Settings';
 
 const NAV = [
@@ -18,7 +17,6 @@ const NAV = [
   ['reports', 'Отчёты', 'chart-column'],
   ['alerts', 'Уведомления', 'bell'],
   ['geo', 'Геозоны', 'hexagon'],
-  ['engine', 'Двигатель', 'power'],
   ['settings', 'Настройки', 'settings'],
 ];
 
@@ -150,7 +148,6 @@ export default function Shell({ user, setUser, devices, positions }) {
           {section === 'reports' && <Reports {...sectionProps} />}
           {section === 'alerts' && <Alerts {...sectionProps} />}
           {section === 'geo' && <Geozones {...sectionProps} />}
-          {section === 'engine' && <Engine {...sectionProps} />}
           {section === 'settings' && <Settings {...sectionProps} />}
         </div>
       </div>
