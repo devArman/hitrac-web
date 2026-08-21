@@ -119,9 +119,9 @@ export default function MapView({ vehicles, devices, positions, focus, mapGroupP
     setActiveTrip(null);
     setTrips({ rows: [], loading: true });
     try {
+      // поездки короче 100 м отсекает бэкенд
       const rows = await getTrips(deviceId, range.from, range.to);
-      // короче 100 м — не поездка, а дрейф GPS на стоянке
-      setTrips({ rows: rows.filter((t) => (t.distance ?? 0) >= 100), loading: false });
+      setTrips({ rows, loading: false });
     } catch (error) {
       setTrips({ rows: [], loading: false, error: error.message });
     }
