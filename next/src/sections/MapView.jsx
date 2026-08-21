@@ -1,21 +1,29 @@
 import { useEffect, useMemo, useState } from 'react';
 import LeafletMap from '../LeafletMap';
-import { deviceEmoji, fuelLevel, fuelLiters, getDeviceGroups, getDeviceStats, KNOTS_TO_KMH, timeAgo } from '../api';
+import {
+  deviceEmoji, formatTime, fuelLevel, fuelLiters,
+  getDeviceGroups, getDeviceStats, KNOTS_TO_KMH, timeAgo,
+} from '../api';
 import { Icon, StatusDot } from '../ui';
 
-// фильтр по связи: значение → предикат
+// фильтр по связи: значение → подпись
 const CONN = [
   ['all', 'Все'],
   ['online', 'На связи'],
   ['off', 'Не на связи'],
 ];
 
+const kmLabel = (meters) => (meters >= 10000
+  ? Math.round(meters / 1000)
+  : Math.round(meters / 100) / 10);
+
 export default function MapView({ vehicles, devices, positions, focus }) {
   const [localFocus, setLocalFocus] = useState(focus);
   const [groups, setGroups] = useState([]);
   const [groupId, setGroupId] = useState('all');
   const [conn, setConn] = useState('all');
-
+  const [q, setQ] = useState('');
+  const [selectedId, setSelectedId] = useState(null);
   const [stats, setStats] = useState({}); // deviceId -> {distanceMeters, maxSpeedKnots, overspeedCount}
 
   useEffect(() => { getDeviceGroups().then(setGroups).catch(() => {}); }, []);
@@ -38,10 +46,16 @@ export default function MapView({ vehicles, devices, positions, focus }) {
     return g ? new Set(g.deviceIds) : null;
   }, [groups, groupId]);
 
-  const inGroup = useMemo(
-    () => (groupSet ? vehicles.filter((v) => groupSet.has(v.device.id)) : vehicles),
-    [vehicles, groupSet],
-  );
+  const inGroup = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    return vehicles.filter((v) => {
+      if (groupSet && !groupSet.has(v.device.id)) return false;
+      if (!query) return true;
+      return [v.name, v.plate, v.device.uniqueId, v.device.phone]
+        .some((s) => s && String(s).toLowerCase().includes(query));
+    });
+  }, [vehicles, groupSet, q]);
+
   const counts = useMemo(() => ({
     all: inGroup.length,
     online: inGroup.filter((v) => v.st !== 'off').length,
@@ -63,11 +77,28 @@ export default function MapView({ vehicles, devices, positions, focus }) {
     ];
   }, [filtered, devices, positions]);
 
+  const selected = selectedId != null ? vehicles.find((v) => v.device.id === selectedId) : null;
+
+  const pick = (v) => {
+    setSelectedId(v.device.id);
+    setLocalFocus((f) => ({ id: v.device.id, seq: Math.max(f.seq, focus.seq) + 1 }));
+  };
+
   return (
     <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
       <div style={{ width: 324, flex: 'none', borderRight: '1px solid var(--color-divider)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        {/* фильтры */}
+        {/* поиск + фильтры */}
         <div style={{ padding: '12px 12px 10px', borderBottom: '1px solid var(--color-divider)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ position: 'relative' }}>
+            <Icon name="search" size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', opacity: 0.45 }} />
+            <input
+              className="input"
+              placeholder="Имя, номер, IMEI, SIM…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              style={{ borderRadius: 999, minHeight: 34, paddingLeft: 32, fontSize: 13 }}
+            />
+          </div>
           <div className="chip-row">
             {CONN.map(([id, label]) => (
               <span key={id} className={`chip${conn === id ? ' chip-active' : ''}`} onClick={() => setConn(id)}>
@@ -96,15 +127,12 @@ export default function MapView({ vehicles, devices, positions, focus }) {
             const updated = timeAgo(v.position?.deviceTime ?? v.device.lastUpdate);
             const address = v.position?.address;
             const stat = stats[v.device.id];
-            const km = stat && (stat.distanceMeters >= 10000
-              ? Math.round(stat.distanceMeters / 1000)
-              : Math.round(stat.distanceMeters / 100) / 10);
             const maxKmh = stat && Math.round(stat.maxSpeedKnots * KNOTS_TO_KMH);
             return (
               <div
                 key={v.device.id}
-                className={`veh-card${currentFocus.id === v.device.id ? ' veh-card-active' : ''}`}
-                onClick={() => setLocalFocus((f) => ({ id: v.device.id, seq: Math.max(f.seq, focus.seq) + 1 }))}
+                className={`veh-card${selectedId === v.device.id ? ' veh-card-active' : ''}`}
+                onClick={() => pick(v)}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <StatusDot color={v.dotColor} />
@@ -125,7 +153,7 @@ export default function MapView({ vehicles, devices, positions, focus }) {
                 {stat && (
                   <div className="text-muted" style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12 }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} title="Пробег сегодня">
-                      <Icon name="route" size={12} />{km} км
+                      <Icon name="route" size={12} />{kmLabel(stat.distanceMeters)} км
                     </span>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} title="Макс. скорость сегодня">
                       <Icon name="gauge" size={12} />макс {maxKmh} км/ч
@@ -158,7 +186,96 @@ export default function MapView({ vehicles, devices, positions, focus }) {
           {filtered.length === 0 && <div className="text-muted" style={{ fontSize: 13, padding: 8 }}>Нет объектов по выбранным фильтрам</div>}
         </div>
       </div>
-      <LeafletMap devices={mapDevices} positions={mapPositions} focusId={currentFocus.id} focusSeq={currentFocus.seq} />
+      {/* карта + нижняя панель деталей */}
+      <div style={{ flex: 1, position: 'relative', display: 'flex', minWidth: 0 }}>
+        <LeafletMap devices={mapDevices} positions={mapPositions} focusId={currentFocus.id} focusSeq={currentFocus.seq} />
+        {selected && <DetailPanel v={selected} stat={stats[selected.device.id]} onClose={() => setSelectedId(null)} />}
+      </div>
+    </div>
+  );
+}
+
+// нижняя панель: подробности выбранного объекта поверх карты
+function DetailPanel({ v, stat, onClose }) {
+  const p = v.position;
+  const a = p?.attributes ?? {};
+  const fuel = fuelLevel(p);
+  const liters = fuelLiters(p);
+  const volts = (x) => `${Math.round(x * 10) / 10} В`;
+  const yesNo = (x) => (x ? 'Вкл' : 'Выкл');
+
+  const rows = [
+    ['Гос. номер', v.plate],
+    ['Модель', v.device.model],
+    ['IMEI', v.device.uniqueId],
+    ['SIM', v.device.phone],
+    ['Водитель', v.device.attributes?.driver ?? v.device.contact],
+    p && ['Координаты', `${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}`],
+    p?.altitude != null && ['Высота', `${Math.round(p.altitude)} м`],
+    a.sat != null && ['Спутники', a.sat],
+    a.rssi != null && ['GSM', a.rssi],
+    a.ignition != null && ['Зажигание', yesNo(a.ignition)],
+    a.motion != null && ['Движение', yesNo(a.motion)],
+    a.power != null && ['Питание', volts(a.power)],
+    a.battery != null && ['Батарея', volts(a.battery)],
+    fuel != null && ['Топливо', `${fuel}%${liters != null ? ` · ${liters} л` : ''}`],
+    ['Обновлено', p?.deviceTime || v.device.lastUpdate
+      ? `${formatTime(p?.deviceTime ?? v.device.lastUpdate)} (${timeAgo(p?.deviceTime ?? v.device.lastUpdate)})`
+      : null],
+  ].filter((r) => r && r[1] != null && r[1] !== '');
+
+  return (
+    <div
+      style={{
+        position: 'absolute', left: 12, right: 12, bottom: 12, zIndex: 1100,
+        background: 'var(--color-surface)', border: '1px solid var(--color-divider)',
+        borderRadius: 16, boxShadow: 'var(--shadow-lg)',
+        maxHeight: '46%', overflow: 'auto',
+        padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <StatusDot color={v.dotColor} size={9} />
+        <b style={{ fontSize: 16 }}>{deviceEmoji(v.device) ? `${deviceEmoji(v.device)} ` : ''}{v.name}</b>
+        <span className={v.tagClass}>{v.stLabel}</span>
+        {v.st === 'move' && <span style={{ fontWeight: 600, fontSize: 13 }}>{v.speedLabel}</span>}
+        <span
+          onClick={onClose}
+          style={{ marginLeft: 'auto', cursor: 'pointer', opacity: 0.6, display: 'inline-flex', padding: 4 }}
+          title="Закрыть"
+        >
+          <Icon name="x" size={16} />
+        </span>
+      </div>
+      {stat && (
+        <div style={{ display: 'flex', gap: 16, fontSize: 13, flexWrap: 'wrap' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <Icon name="route" size={13} style={{ color: 'var(--color-accent)' }} />
+            Пробег сегодня: <b>{kmLabel(stat.distanceMeters)} км</b>
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <Icon name="gauge" size={13} style={{ color: 'var(--color-accent-2)' }} />
+            Макс. скорость: <b>{Math.round(stat.maxSpeedKnots * KNOTS_TO_KMH)} км/ч</b>
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: stat.overspeedCount > 0 ? '#c0392b' : 'inherit' }}>
+            <Icon name="triangle-alert" size={13} />
+            Превышений: <b>{stat.overspeedCount}</b>
+          </span>
+        </div>
+      )}
+      {p?.address && (
+        <div className="text-muted" style={{ fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Icon name="map-pin" size={12} style={{ flex: 'none' }} />{p.address}
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+        {rows.map(([label, value]) => (
+          <div key={label} style={{ background: 'var(--color-neutral-100)', borderRadius: 10, padding: '7px 10px', minWidth: 0 }}>
+            <div className="text-muted" style={{ fontSize: 10, letterSpacing: '.06em', textTransform: 'uppercase' }}>{label}</div>
+            <div style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={String(value)}>{value}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
