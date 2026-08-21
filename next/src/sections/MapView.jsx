@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import LeafletMap from '../LeafletMap';
 import {
   deviceEmoji, formatTime, fuelLevel, fuelLiters, getDeviceGroups,
-  getDeviceStats, getJson, getRoute, getTrips, KNOTS_TO_KMH, localDate,
-  sendCommand, startOfDay, timeAgo,
+  getDeviceStats, getDeviceTimeline, getJson, getRoute, KNOTS_TO_KMH,
+  localDate, sendCommand, timeAgo,
 } from '../api';
 import GroupDialog from './GroupDialog';
 import { ConfirmDialog, Icon, StatusDot } from '../ui';
@@ -21,12 +21,22 @@ const kmLabel = (meters) => (meters >= 10000
   ? Math.round(meters / 1000)
   : Math.round(meters / 100) / 10);
 
-const PERIODS = [
-  ['today', 'Сегодня'],
-  ['week', 'Неделя'],
-  ['month', 'Месяц'],
-  ['custom', 'Период'],
-];
+// последние 7 дней для выбора: [YYYY-MM-DD, 'Пт', '21 авг']
+const lastDays = (count = 7) => Array.from({ length: count }, (_, i) => {
+  const d = new Date();
+  d.setDate(d.getDate() - (count - 1 - i));
+  return [
+    localDate(d),
+    d.toLocaleDateString('ru-RU', { weekday: 'short' }),
+    d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }),
+  ];
+});
+
+// 2 ч 52 мин
+const hm = (ms) => {
+  const min = Math.round(ms / 60000);
+  return min >= 60 ? `${Math.floor(min / 60)} ч ${min % 60} мин` : `${min} мин`;
+};
 
 export default function MapView({ vehicles, devices, positions, focus, mapGroupPreset }) {
   const [localFocus, setLocalFocus] = useState(focus);
@@ -37,12 +47,12 @@ export default function MapView({ vehicles, devices, positions, focus, mapGroupP
   const [selectedId, setSelectedId] = useState(null);
   const [stats, setStats] = useState({}); // deviceId -> {distanceMeters, maxSpeedKnots, overspeedCount}
 
-  // поездки и маршрут выбранного объекта — показываем прямо на этой карте
-  const [trips, setTrips] = useState(null); // { rows, loading, error }
+  // лента дня (поездки и стоянки) и маршрут — прямо на этой карте
+  const [timeline, setTimeline] = useState(null); // { rows, loading, error }
   const [track, setTrack] = useState(null);
   const [activeTrip, setActiveTrip] = useState(null);
 
-  const clearTrips = () => { setTrips(null); setTrack(null); setActiveTrip(null); };
+  const clearTrips = () => { setTimeline(null); setTrack(null); setActiveTrip(null); };
 
 
   const [groupDialog, setGroupDialog] = useState(null); // { group: null|{} }
@@ -114,16 +124,16 @@ export default function MapView({ vehicles, devices, positions, focus, mapGroupP
     setLocalFocus((f) => ({ id: v.device.id, seq: Math.max(f.seq, focus.seq) + 1 }));
   };
 
-  const loadTrips = async (deviceId, range) => {
+  const loadTimeline = async (deviceId, range) => {
     setTrack(null);
     setActiveTrip(null);
-    setTrips({ rows: [], loading: true });
+    setTimeline({ rows: [], loading: true });
     try {
-      // поездки короче 100 м отсекает бэкенд
-      const rows = await getTrips(deviceId, range.from, range.to);
-      setTrips({ rows, loading: false });
+      // сегменты короче 100 м бэкенд уже приклеил к стоянке
+      const rows = await getDeviceTimeline(deviceId, range.from, range.to);
+      setTimeline({ rows, loading: false });
     } catch (error) {
-      setTrips({ rows: [], loading: false, error: error.message });
+      setTimeline({ rows: [], loading: false, error: error.message });
     }
   };
 
@@ -131,7 +141,7 @@ export default function MapView({ vehicles, devices, positions, focus, mapGroupP
     if (activeTrip === index) { setTrack(null); setActiveTrip(null); return; }
     setActiveTrip(index);
     try {
-      setTrack(await getRoute(trip.deviceId, new Date(trip.startTime), new Date(trip.endTime)));
+      setTrack(await getRoute(selectedId, new Date(trip.startTime), new Date(trip.endTime)));
     } catch {
       setTrack(null);
     }
@@ -266,9 +276,9 @@ export default function MapView({ vehicles, devices, positions, focus, mapGroupP
             v={selected}
             stat={stats[selected.device.id]}
             onClose={() => { setSelectedId(null); clearTrips(); }}
-            trips={trips}
+            timeline={timeline}
             activeTrip={activeTrip}
-            onLoadTrips={(range) => loadTrips(selected.device.id, range)}
+            onLoadTimeline={loadTimeline}
             onPickTrip={showTripTrack}
           />
         )}
@@ -291,7 +301,7 @@ export default function MapView({ vehicles, devices, positions, focus, mapGroupP
 }
 
 // нижняя панель: подробности выбранного объекта поверх карты
-function DetailPanel({ v, stat, onClose, trips, activeTrip, onLoadTrips, onPickTrip }) {
+function DetailPanel({ v, stat, onClose, timeline, activeTrip, onLoadTimeline, onPickTrip }) {
   const p = v.position;
   const a = p?.attributes ?? {};
   const fuel = fuelLevel(p);
@@ -299,34 +309,23 @@ function DetailPanel({ v, stat, onClose, trips, activeTrip, onLoadTrips, onPickT
   const volts = (x) => `${Math.round(x * 10) / 10} В`;
   const yesNo = (x) => (x ? 'Вкл' : 'Выкл');
 
-  // статистика за выбранный период; «Сегодня» — из общего списка (живая)
-  const [period, setPeriod] = useState('today');
-  const [customFrom, setCustomFrom] = useState(() => localDate());
-  const [customTo, setCustomTo] = useState(() => localDate());
+  // выбранный день (как в Wialon — лента одного дня)
+  const [day, setDay] = useState(() => localDate());
   const [fetched, setFetched] = useState(null);
   const [loadingStat, setLoadingStat] = useState(false);
 
-  const range = useMemo(() => {
-    if (period === 'week') return { from: new Date(Date.now() - 7 * 864e5), to: new Date() };
-    if (period === 'month') return { from: new Date(Date.now() - 30 * 864e5), to: new Date() };
-    if (period === 'custom') {
-      const from = new Date(`${customFrom}T00:00:00`);
-      const to = new Date(`${customTo}T23:59:59`);
-      if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from > to) return null;
-      return { from, to };
-    }
-    return null; // today — данные из props
-  }, [period, customFrom, customTo]);
+  const range = useMemo(() => ({
+    from: new Date(`${day}T00:00:00`),
+    to: new Date(`${day}T23:59:59.999`),
+  }), [day]);
 
-  // поездки грузятся сами: при выборе машины и при смене периода
+  // лента дня грузится сама: при выборе машины и при смене дня
   useEffect(() => {
-    const r = period === 'today' ? { from: startOfDay(), to: new Date() } : range;
-    if (r) onLoadTrips(r);
+    onLoadTimeline(v.device.id, range);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [v.device.id, period, customFrom, customTo]);
+  }, [v.device.id, day]);
 
   useEffect(() => {
-    if (period === 'today' || !range) { setFetched(null); return undefined; }
     let alive = true;
     setLoadingStat(true);
     getDeviceStats({ deviceId: v.device.id, from: range.from, to: range.to })
@@ -336,9 +335,18 @@ function DetailPanel({ v, stat, onClose, trips, activeTrip, onLoadTrips, onPickT
       .catch(() => { if (alive) setFetched(null); })
       .finally(() => { if (alive) setLoadingStat(false); });
     return () => { alive = false; };
-  }, [v.device.id, period, range]);
+  }, [v.device.id, range]);
 
-  const shownStat = period === 'today' ? stat : fetched;
+  const shownStat = fetched;
+
+  // сводка дня: сколько в движении и сколько на стоянке
+  const summary = useMemo(() => {
+    if (!timeline || timeline.loading || !timeline.rows.length) return null;
+    const sum = (type) => timeline.rows
+      .filter((s) => s.type === type)
+      .reduce((acc, s) => acc + s.duration, 0);
+    return { driveMs: sum('trip'), parkMs: sum('park') };
+  }, [timeline]);
 
   // блокировка двигателя — та же логика, что в разделе «Двигатель»
   const blocked = Boolean(a.blocked);
@@ -427,29 +435,32 @@ function DetailPanel({ v, stat, onClose, trips, activeTrip, onLoadTrips, onPickT
           </span>
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-        {PERIODS.map(([id, label]) => (
-          <span key={id} className={`chip${period === id ? ' chip-active' : ''}`} onClick={() => setPeriod(id)}>
-            {label}
+      <div className="chip-row">
+        {lastDays().map(([value, weekday, label]) => (
+          <span key={value} className={`chip${day === value ? ' chip-active' : ''}`} onClick={() => setDay(value)}
+            style={{ flexDirection: 'column', gap: 0, lineHeight: 1.25, padding: '4px 12px' }}>
+            <span style={{ fontSize: 10, opacity: 0.7, textTransform: 'capitalize' }}>{weekday}</span>
+            <b style={{ fontSize: 12 }}>{label}</b>
           </span>
         ))}
-        {period === 'custom' && (
-          <>
-            <input type="date" className="input" value={customFrom} max={customTo}
-              onChange={(e) => setCustomFrom(e.target.value)}
-              style={{ width: 140, minHeight: 30, borderRadius: 999, fontSize: 12, padding: '2px 12px' }} />
-            <span className="text-muted" style={{ fontSize: 12 }}>—</span>
-            <input type="date" className="input" value={customTo} min={customFrom} max={localDate()}
-              onChange={(e) => setCustomTo(e.target.value)}
-              style={{ width: 140, minHeight: 30, borderRadius: 999, fontSize: 12, padding: '2px 12px' }} />
-          </>
-        )}
-        {loadingStat && <span className="text-muted" style={{ fontSize: 12 }}>Загрузка…</span>}
+        {loadingStat && <span className="text-muted" style={{ fontSize: 12, alignSelf: 'center' }}>Загрузка…</span>}
       </div>
       <div style={{ display: 'flex', gap: 14, fontSize: 12.5, flexWrap: 'wrap', alignItems: 'center' }}>
+        {summary && (
+          <>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }} title="Время в движении за день">
+              <Icon name="car-front" size={13} style={{ color: 'var(--color-accent)' }} />
+              <b>{hm(summary.driveMs)}</b>
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }} title="Время стоянок за день">
+              <b style={{ color: 'var(--color-accent-2)' }}>P</b>
+              <b>{hm(summary.parkMs)}</b>
+            </span>
+          </>
+        )}
         {shownStat && !loadingStat && (
           <>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }} title="Пробег за период">
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }} title="Пробег за день">
               <Icon name="route" size={13} style={{ color: 'var(--color-accent)' }} />
               <b>{kmLabel(shownStat.distanceMeters)} км</b>
             </span>
@@ -479,48 +490,66 @@ function DetailPanel({ v, stat, onClose, trips, activeTrip, onLoadTrips, onPickT
           <Icon name="map-pin" size={12} style={{ flex: 'none' }} />{p.address}
         </div>
       )}
-      {trips && (
+      {timeline && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 600 }}>
-            Поездки {trips.loading ? '' : `(${trips.rows.length})`}
-            {!trips.loading && trips.rows.length > 0 && (
-              <span className="text-muted" style={{ fontWeight: 400 }}> — нажмите, чтобы показать маршрут на карте</span>
-            )}
-          </div>
-          {trips.loading && <div className="text-muted" style={{ fontSize: 12 }}>Загрузка…</div>}
-          {trips.error && <div style={{ fontSize: 12, color: '#c0392b' }}>Не удалось загрузить: {trips.error}</div>}
-          {!trips.loading && !trips.error && trips.rows.length === 0 && (
-            <div className="text-muted" style={{ fontSize: 12 }}>За выбранный период поездок нет</div>
+          {timeline.loading && <div className="text-muted" style={{ fontSize: 12 }}>Загрузка ленты…</div>}
+          {timeline.error && <div style={{ fontSize: 12, color: '#c0392b' }}>Не удалось загрузить: {timeline.error}</div>}
+          {!timeline.loading && !timeline.error && timeline.rows.length === 0 && (
+            <div className="text-muted" style={{ fontSize: 12 }}>За этот день данных нет</div>
           )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 168, overflow: 'auto' }}>
-            {trips.rows.map((trip, index) => (
-              <div
-                key={`${trip.startTime}-${index}`}
-                onClick={() => onPickTrip(trip, index)}
-                style={{
-                  border: '1px solid var(--color-divider)', borderRadius: 12, padding: '7px 10px',
-                  cursor: 'pointer', fontSize: 12.5, display: 'flex', flexDirection: 'column', gap: 3,
-                  ...(activeTrip === index ? {
-                    borderColor: 'var(--color-accent)',
-                    background: 'color-mix(in srgb, var(--color-accent) 8%, transparent)',
-                  } : {}),
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <b>{tripTime(trip.startTime)} — {tripTime(trip.endTime)}</b>
-                  <span className="text-muted">{new Date(trip.startTime).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}</span>
-                  <span className="tag tag-neutral" style={{ marginLeft: 'auto', flex: 'none' }}>
-                    {Math.round(trip.distance / 100) / 10} км
+          <div style={{ display: 'flex', flexDirection: 'column', maxHeight: 260, overflow: 'auto' }}>
+            {timeline.rows.map((s, index) => {
+              const trip = s.type === 'trip';
+              const active = trip && activeTrip === index;
+              return (
+                <div
+                  key={`${s.startTime}-${index}`}
+                  onClick={() => trip && onPickTrip(s, index)}
+                  title={trip ? 'Показать маршрут на карте' : undefined}
+                  style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 10, padding: '7px 8px',
+                    borderRadius: 12, fontSize: 12.5, cursor: trip ? 'pointer' : 'default',
+                    borderBottom: '1px solid var(--color-divider)',
+                    ...(active ? { background: 'color-mix(in srgb, var(--color-accent) 10%, transparent)' } : {}),
+                  }}
+                >
+                  <b style={{ flex: 'none', width: 42, fontVariantNumeric: 'tabular-nums' }}>{tripTime(s.startTime)}</b>
+                  <span
+                    style={{
+                      flex: 'none', width: 22, height: 22, borderRadius: '50%', display: 'grid', placeItems: 'center',
+                      background: trip ? 'color-mix(in srgb, var(--color-accent) 18%, transparent)'
+                        : 'color-mix(in srgb, var(--color-accent-2) 18%, transparent)',
+                      color: trip ? 'var(--color-accent)' : 'var(--color-accent-2)',
+                    }}
+                  >
+                    {trip ? <Icon name="car-front" size={13} /> : <b style={{ fontSize: 12 }}>P</b>}
                   </span>
+                  <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Icon name="clock" size={11} style={{ opacity: 0.6 }} />{hm(s.duration)}
+                      </span>
+                      {trip && (
+                        <>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <Icon name="route" size={11} style={{ opacity: 0.6 }} />{(s.distance / 1000).toFixed(2)} км
+                          </span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <Icon name="gauge" size={11} style={{ opacity: 0.6 }} />
+                            {Math.round(s.averageSpeed * KNOTS_TO_KMH)} км/ч
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    {!trip && s.address && (
+                      <div className="text-muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {s.address}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="text-muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {trip.startAddress || '—'} → {trip.endAddress || '—'}
-                </div>
-                <div className="text-muted" style={{ fontSize: 11.5 }}>
-                  Макс. {Math.round((trip.maxSpeed ?? 0) * KNOTS_TO_KMH)} км/ч · {Math.round((trip.duration ?? 0) / 60000)} мин
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

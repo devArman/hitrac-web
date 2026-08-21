@@ -84,6 +84,10 @@ export const getDeviceStats = (opts = {}) => {
   return getJson(`/device-stats?${query(params)}`);
 };
 
+// лента дня: чередование поездок и стоянок с адресами
+export const getDeviceTimeline = (deviceId, from, to) =>
+  getJson(`/device-timeline?${query({ deviceId, from: from.toISOString(), to: to.toISOString() })}`);
+
 export const getTrips = (deviceId, from, to) =>
   getJson(`/reports/trips?${query({ deviceId, from: from.toISOString(), to: to.toISOString() })}`);
 
