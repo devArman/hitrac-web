@@ -102,7 +102,7 @@ export default function MapView({ vehicles, devices, positions, focus, openTrips
 
   return (
     <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-      <div style={{ width: 324, flex: 'none', borderRight: '1px solid var(--color-divider)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <div style={{ width: 420, flex: 'none', borderRight: '1px solid var(--color-divider)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {/* поиск + фильтры */}
         <div style={{ padding: '12px 12px 10px', borderBottom: '1px solid var(--color-divider)', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ position: 'relative' }}>
@@ -142,9 +142,6 @@ export default function MapView({ vehicles, devices, positions, focus, openTrips
                 )}
               </span>
             ))}
-            <span className="chip" title="Создать свою группу" onClick={() => setGroupDialog({ group: null })}>
-              <Icon name="plus" size={12} />Группа
-            </span>
           </div>
         </div>
         {/* список */}
