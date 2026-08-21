@@ -212,7 +212,13 @@ export default function MapView({ vehicles, devices, positions, focus, openTrips
       </div>
       {/* карта + нижняя панель деталей */}
       <div style={{ flex: 1, position: 'relative', display: 'flex', minWidth: 0 }}>
-        <LeafletMap devices={mapDevices} positions={mapPositions} focusId={currentFocus.id} focusSeq={currentFocus.seq} />
+        <LeafletMap
+          devices={mapDevices}
+          positions={mapPositions}
+          focusId={currentFocus.id}
+          focusSeq={currentFocus.seq}
+          onMarkerClick={(id) => setSelectedId(id)}
+        />
         {selected && (
           <DetailPanel
             v={selected}
