@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import LeafletMap from '../LeafletMap';
-import { deviceEmoji, fuelLevel, fuelLiters, getDeviceGroups, timeAgo } from '../api';
+import { deviceEmoji, fuelLevel, fuelLiters, getDeviceGroups, getDeviceStats, KNOTS_TO_KMH, timeAgo } from '../api';
 import { Icon, StatusDot } from '../ui';
 
 // фильтр по связи: значение → предикат
@@ -16,7 +16,19 @@ export default function MapView({ vehicles, devices, positions, focus }) {
   const [groupId, setGroupId] = useState('all');
   const [conn, setConn] = useState('all');
 
+  const [stats, setStats] = useState({}); // deviceId -> {distanceMeters, maxSpeedKnots, overspeedCount}
+
   useEffect(() => { getDeviceGroups().then(setGroups).catch(() => {}); }, []);
+
+  // суточная статистика: при открытии и раз в 3 минуты
+  useEffect(() => {
+    const load = () => getDeviceStats()
+      .then((rows) => setStats(Object.fromEntries(rows.map((r) => [r.deviceId, r]))))
+      .catch(() => {});
+    load();
+    const timer = setInterval(() => { if (document.visibilityState !== 'hidden') load(); }, 180000);
+    return () => clearInterval(timer);
+  }, []);
 
   const currentFocus = localFocus.seq >= focus.seq ? localFocus : focus;
 
@@ -83,6 +95,11 @@ export default function MapView({ vehicles, devices, positions, focus }) {
             const liters = fuelLiters(v.position);
             const updated = timeAgo(v.position?.deviceTime ?? v.device.lastUpdate);
             const address = v.position?.address;
+            const stat = stats[v.device.id];
+            const km = stat && (stat.distanceMeters >= 10000
+              ? Math.round(stat.distanceMeters / 1000)
+              : Math.round(stat.distanceMeters / 100) / 10);
+            const maxKmh = stat && Math.round(stat.maxSpeedKnots * KNOTS_TO_KMH);
             return (
               <div
                 key={v.device.id}
@@ -105,6 +122,21 @@ export default function MapView({ vehicles, devices, positions, focus }) {
                     </span>
                   )}
                 </div>
+                {stat && (
+                  <div className="text-muted" style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} title="Пробег сегодня">
+                      <Icon name="route" size={12} />{km} км
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} title="Макс. скорость сегодня">
+                      <Icon name="gauge" size={12} />макс {maxKmh} км/ч
+                    </span>
+                    {stat.overspeedCount > 0 && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#c0392b', marginLeft: 'auto' }} title="Превышений лимита скорости сегодня">
+                        <Icon name="triangle-alert" size={12} />{stat.overspeedCount}
+                      </span>
+                    )}
+                  </div>
+                )}
                 {fuel != null && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
                     <Icon name="fuel" size={12} style={{ color: 'var(--color-accent)' }} />

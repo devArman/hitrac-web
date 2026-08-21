@@ -70,6 +70,10 @@ const query = (params) => {
   return q.toString();
 };
 
+// суточная статистика (пробег, макс. скорость, превышения) с начала дня клиента
+export const getDeviceStats = () =>
+  getJson(`/device-stats?${query({ from: startOfDay().toISOString() })}`);
+
 export const getTrips = (deviceId, from, to) =>
   getJson(`/reports/trips?${query({ deviceId, from: from.toISOString(), to: to.toISOString() })}`);
 
