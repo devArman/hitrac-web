@@ -438,9 +438,9 @@ function DetailPanel({ v, stat, onClose, timeline, activeTrip, onLoadTimeline, o
       <div className="chip-row">
         {lastDays().map(([value, weekday, label]) => (
           <span key={value} className={`chip${day === value ? ' chip-active' : ''}`} onClick={() => setDay(value)}
-            style={{ flexDirection: 'column', gap: 1, lineHeight: 1.2, padding: '8px 20px', borderRadius: 14, minWidth: 84 }}>
-            <span style={{ fontSize: 12, opacity: 0.7, textTransform: 'capitalize' }}>{weekday}</span>
-            <b style={{ fontSize: 15 }}>{label}</b>
+            style={{ flexDirection: 'column', gap: 0, lineHeight: 1.25, padding: '4px 12px' }}>
+            <span style={{ fontSize: 10, opacity: 0.7, textTransform: 'capitalize' }}>{weekday}</span>
+            <b style={{ fontSize: 12 }}>{label}</b>
           </span>
         ))}
         {loadingStat && <span className="text-muted" style={{ fontSize: 12, alignSelf: 'center' }}>Загрузка…</span>}
