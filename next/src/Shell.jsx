@@ -22,12 +22,6 @@ const NAV = [
   ['settings', 'Настройки', 'settings'],
 ];
 
-const TITLES = {
-  map: 'Карта', fleet: 'Автопарк', tracks: 'История поездок', reports: 'Отчёты',
-  alerts: 'Уведомления и события', geo: 'Геозоны', engine: 'Управление двигателем', settings: 'Настройки',
-};
-
-
 // раздел живёт в URL (#/map, #/fleet…): F5 возвращает туда же, работает «назад»
 function useHashSection(valid, fallback) {
   const read = () => {
@@ -52,7 +46,6 @@ function useHashSection(valid, fallback) {
 export default function Shell({ user, setUser, devices, positions }) {
   const [section, setSection] = useHashSection(NAV.map(([id]) => id), 'map');
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') ?? 'light');
-  const [search, setSearch] = useState('');
   const [focus, setFocus] = useState({ id: null, seq: 0 });
   const [showAnnouncements, setShowAnnouncements] = useState(false);
 
@@ -79,14 +72,6 @@ export default function Shell({ user, setUser, devices, positions }) {
     return list;
   }, [devices, positions]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return vehicles;
-    return vehicles.filter((v) => v.name.toLowerCase().includes(q) || String(v.plate).toLowerCase().includes(q));
-  }, [vehicles, search]);
-
-  const online = vehicles.filter((v) => v.st !== 'off').length;
-
   const focusOnMap = (deviceId) => {
     setSection('map');
     setFocus((f) => ({ id: deviceId, seq: f.seq + 1 }));
@@ -101,7 +86,7 @@ export default function Shell({ user, setUser, devices, positions }) {
 
   const initials = (user.name || user.email).split(/[\s@]+/).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('');
 
-  const sectionProps = { vehicles: filtered, allVehicles: vehicles, positions, devices, user, setUser, focusOnMap, focus, openTrips, tripsPreset };
+  const sectionProps = { vehicles, allVehicles: vehicles, positions, devices, user, setUser, focusOnMap, focus, openTrips, tripsPreset };
 
   return (
     <div data-theme={theme} style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)', overflow: 'hidden' }}>
@@ -136,6 +121,10 @@ export default function Shell({ user, setUser, devices, positions }) {
           })}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 'none' }}>
+          <div style={{ position: 'relative' }}>
+            <AnnouncementsBell onClick={() => setShowAnnouncements((v) => !v)} />
+            {showAnnouncements && <AnnouncementsPanel onClose={() => setShowAnnouncements(false)} />}
+          </div>
           <button
             className="btn btn-secondary"
             style={{ padding: 7, borderRadius: 999 }}
@@ -144,30 +133,16 @@ export default function Shell({ user, setUser, devices, positions }) {
           >
             <Icon name={theme === 'light' ? 'moon' : 'sun'} size={15} />
           </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+            <span style={{ width: 28, height: 28, display: 'grid', placeItems: 'center', borderRadius: 999, background: 'var(--grad-brand)', color: '#fff', fontFamily: 'var(--font-heading)', fontSize: 13 }}>
+              {initials}
+            </span>
+            {user.name || user.email}
+          </div>
         </div>
       </div>
       {/* main */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 20px', borderBottom: '1px solid var(--color-divider)', flex: 'none' }}>
-          <h4 style={{ margin: 0, fontSize: 21 }}>{TITLES[section]}</h4>
-          <span className="tag tag-accent" style={{ gap: 6 }}>
-            <span style={{ width: 7, height: 7, background: 'var(--color-accent)', borderRadius: '50%', animation: 'pulse 1.6s infinite' }} />
-            {online} на связи
-          </span>
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ position: 'relative' }}>
-              <AnnouncementsBell onClick={() => setShowAnnouncements((v) => !v)} />
-              {showAnnouncements && <AnnouncementsPanel onClose={() => setShowAnnouncements(false)} />}
-            </div>
-            <input className="input" placeholder="Поиск объекта…" style={{ width: 220, minHeight: 32 }} value={search} onChange={(e) => setSearch(e.target.value)} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-              <span style={{ width: 28, height: 28, display: 'grid', placeItems: 'center', borderRadius: 8, background: 'var(--grad-brand)', color: '#fff', fontFamily: 'var(--font-heading)', fontSize: 13 }}>
-                {initials}
-              </span>
-              {user.name || user.email}
-            </div>
-          </div>
-        </div>
         <div style={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           {section === 'map' && <MapView {...sectionProps} />}
           {section === 'fleet' && <Fleet {...sectionProps} />}
