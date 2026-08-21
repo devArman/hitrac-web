@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import LeafletMap from '../LeafletMap';
 import {
   deviceEmoji, formatTime, fuelLevel, fuelLiters, getDeviceGroups,
-  getDeviceStats, getJson, KNOTS_TO_KMH, localDate, sendCommand, timeAgo,
+  getDeviceStats, getJson, getRoute, getTrips, KNOTS_TO_KMH, localDate,
+  sendCommand, startOfDay, timeAgo,
 } from '../api';
 import GroupDialog from './GroupDialog';
 import { ConfirmDialog, Icon, StatusDot } from '../ui';
@@ -13,6 +14,8 @@ const CONN = [
   ['online', 'Online'],
   ['off', 'Offline'],
 ];
+
+const tripTime = (value) => new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
 const kmLabel = (meters) => (meters >= 10000
   ? Math.round(meters / 1000)
@@ -25,7 +28,7 @@ const PERIODS = [
   ['custom', 'Период'],
 ];
 
-export default function MapView({ vehicles, devices, positions, focus, openTrips, mapGroupPreset }) {
+export default function MapView({ vehicles, devices, positions, focus, mapGroupPreset }) {
   const [localFocus, setLocalFocus] = useState(focus);
   const [groups, setGroups] = useState([]);
   const [groupId, setGroupId] = useState('all');
@@ -94,9 +97,39 @@ export default function MapView({ vehicles, devices, positions, focus, openTrips
 
   const selected = selectedId != null ? vehicles.find((v) => v.device.id === selectedId) : null;
 
+  // поездки и маршрут выбранного объекта — показываем прямо на этой карте
+  const [trips, setTrips] = useState(null); // { rows, loading, error }
+  const [track, setTrack] = useState(null);
+  const [activeTrip, setActiveTrip] = useState(null);
+
+  const clearTrips = () => { setTrips(null); setTrack(null); setActiveTrip(null); };
+
   const pick = (v) => {
+    if (v.device.id !== selectedId) clearTrips();
     setSelectedId(v.device.id);
     setLocalFocus((f) => ({ id: v.device.id, seq: Math.max(f.seq, focus.seq) + 1 }));
+  };
+
+  const loadTrips = async (deviceId, range) => {
+    setTrack(null);
+    setActiveTrip(null);
+    setTrips({ rows: [], loading: true });
+    try {
+      const rows = await getTrips(deviceId, range.from, range.to);
+      setTrips({ rows, loading: false });
+    } catch (error) {
+      setTrips({ rows: [], loading: false, error: error.message });
+    }
+  };
+
+  const showTripTrack = async (trip, index) => {
+    if (activeTrip === index) { setTrack(null); setActiveTrip(null); return; }
+    setActiveTrip(index);
+    try {
+      setTrack(await getRoute(trip.deviceId, new Date(trip.startTime), new Date(trip.endTime)));
+    } catch {
+      setTrack(null);
+    }
   };
 
   return (
@@ -215,16 +248,24 @@ export default function MapView({ vehicles, devices, positions, focus, openTrips
         <LeafletMap
           devices={mapDevices}
           positions={mapPositions}
+          track={track}
           focusId={currentFocus.id}
           focusSeq={currentFocus.seq}
-          onMarkerClick={(id) => setSelectedId(id)}
+          onMarkerClick={(id) => {
+            if (id !== selectedId) clearTrips();
+            setSelectedId(id);
+          }}
         />
         {selected && (
           <DetailPanel
             v={selected}
             stat={stats[selected.device.id]}
-            onClose={() => setSelectedId(null)}
-            openTrips={openTrips}
+            onClose={() => { setSelectedId(null); clearTrips(); }}
+            trips={trips}
+            activeTrip={activeTrip}
+            onLoadTrips={(range) => loadTrips(selected.device.id, range)}
+            onPickTrip={showTripTrack}
+            onHideTrips={clearTrips}
           />
         )}
         {groupDialog && (
@@ -246,7 +287,7 @@ export default function MapView({ vehicles, devices, positions, focus, openTrips
 }
 
 // нижняя панель: подробности выбранного объекта поверх карты
-function DetailPanel({ v, stat, onClose, openTrips }) {
+function DetailPanel({ v, stat, onClose, trips, activeTrip, onLoadTrips, onPickTrip, onHideTrips }) {
   const p = v.position;
   const a = p?.attributes ?? {};
   const fuel = fuelLevel(p);
@@ -272,6 +313,9 @@ function DetailPanel({ v, stat, onClose, openTrips }) {
     }
     return null; // today — данные из props
   }, [period, customFrom, customTo]);
+
+  // конкретный интервал для запроса поездок (для «Сегодня» range = null)
+  const tripsRange = range ?? { from: startOfDay(), to: new Date() };
 
   useEffect(() => {
     if (period === 'today' || !range) { setFetched(null); return undefined; }
@@ -349,7 +393,7 @@ function DetailPanel({ v, stat, onClose, openTrips }) {
         position: 'absolute', left: 12, right: 12, bottom: 12, zIndex: 1100,
         background: 'var(--color-surface)', border: '1px solid var(--color-divider)',
         borderRadius: 16, boxShadow: 'var(--shadow-lg)',
-        maxHeight: '46%', overflow: 'auto',
+        maxHeight: trips ? '64%' : '46%', overflow: 'auto',
         padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10,
       }}
     >
@@ -361,10 +405,13 @@ function DetailPanel({ v, stat, onClose, openTrips }) {
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             className="btn btn-secondary"
-            style={{ fontSize: 12, padding: '4px 12px', borderRadius: 999 }}
-            onClick={() => openTrips(v.device.id)}
+            style={{
+              fontSize: 12, padding: '4px 12px', borderRadius: 999,
+              ...(trips ? { color: 'var(--color-accent)', borderColor: 'currentColor' } : {}),
+            }}
+            onClick={() => (trips ? onHideTrips() : onLoadTrips(tripsRange))}
           >
-            <Icon name="route" size={13} />Поездки
+            <Icon name="route" size={13} />{trips ? 'Скрыть поездки' : 'Поездки'}
           </button>
           <button
             className="btn btn-secondary"
@@ -427,6 +474,51 @@ function DetailPanel({ v, stat, onClose, openTrips }) {
       {p?.address && (
         <div className="text-muted" style={{ fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 6 }}>
           <Icon name="map-pin" size={12} style={{ flex: 'none' }} />{p.address}
+        </div>
+      )}
+      {trips && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600 }}>
+            Поездки {trips.loading ? '' : `(${trips.rows.length})`}
+            {!trips.loading && trips.rows.length > 0 && (
+              <span className="text-muted" style={{ fontWeight: 400 }}> — нажмите, чтобы показать маршрут на карте</span>
+            )}
+          </div>
+          {trips.loading && <div className="text-muted" style={{ fontSize: 12 }}>Загрузка…</div>}
+          {trips.error && <div style={{ fontSize: 12, color: '#c0392b' }}>Не удалось загрузить: {trips.error}</div>}
+          {!trips.loading && !trips.error && trips.rows.length === 0 && (
+            <div className="text-muted" style={{ fontSize: 12 }}>За выбранный период поездок нет</div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 168, overflow: 'auto' }}>
+            {trips.rows.map((trip, index) => (
+              <div
+                key={`${trip.startTime}-${index}`}
+                onClick={() => onPickTrip(trip, index)}
+                style={{
+                  border: '1px solid var(--color-divider)', borderRadius: 12, padding: '7px 10px',
+                  cursor: 'pointer', fontSize: 12.5, display: 'flex', flexDirection: 'column', gap: 3,
+                  ...(activeTrip === index ? {
+                    borderColor: 'var(--color-accent)',
+                    background: 'color-mix(in srgb, var(--color-accent) 8%, transparent)',
+                  } : {}),
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <b>{tripTime(trip.startTime)} — {tripTime(trip.endTime)}</b>
+                  <span className="text-muted">{new Date(trip.startTime).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}</span>
+                  <span className="tag tag-neutral" style={{ marginLeft: 'auto', flex: 'none' }}>
+                    {Math.round(trip.distance / 100) / 10} км
+                  </span>
+                </div>
+                <div className="text-muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {trip.startAddress || '—'} → {trip.endAddress || '—'}
+                </div>
+                <div className="text-muted" style={{ fontSize: 11.5 }}>
+                  Макс. {Math.round((trip.maxSpeed ?? 0) * KNOTS_TO_KMH)} км/ч · {Math.round((trip.duration ?? 0) / 60000)} мин
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
