@@ -8,11 +8,13 @@ import Trips from './sections/Trips';
 import Reports from './sections/Reports';
 import Alerts from './sections/Alerts';
 import Geozones from './sections/Geozones';
+import Groups from './sections/Groups';
 import Settings from './sections/Settings';
 
 const NAV = [
   ['map', 'Карта', 'map'],
   ['fleet', 'Автопарк', 'truck'],
+  ['groups', 'Группы', 'layers'],
   ['tracks', 'Поездки', 'route'],
   ['reports', 'Отчёты', 'chart-column'],
   ['alerts', 'Уведомления', 'bell'],
@@ -82,9 +84,16 @@ export default function Shell({ user, setUser, devices, positions }) {
     setSection('tracks');
   };
 
+  // открыть карту с включённым фильтром группы (кнопка в разделе «Группы»)
+  const [mapGroupPreset, setMapGroupPreset] = useState(null);
+  const openMapWithGroup = (groupId) => {
+    setMapGroupPreset({ groupId });
+    setSection('map');
+  };
+
   const initials = (user.name || user.email).split(/[\s@]+/).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('');
 
-  const sectionProps = { vehicles, allVehicles: vehicles, positions, devices, user, setUser, focusOnMap, focus, openTrips, tripsPreset };
+  const sectionProps = { vehicles, allVehicles: vehicles, positions, devices, user, setUser, focusOnMap, focus, openTrips, tripsPreset, openMapWithGroup, mapGroupPreset };
 
   return (
     <div data-theme={theme} style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)', overflow: 'hidden' }}>
@@ -144,6 +153,7 @@ export default function Shell({ user, setUser, devices, positions }) {
         <div style={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           {section === 'map' && <MapView {...sectionProps} />}
           {section === 'fleet' && <Fleet {...sectionProps} />}
+          {section === 'groups' && <Groups {...sectionProps} />}
           {section === 'tracks' && <Trips {...sectionProps} />}
           {section === 'reports' && <Reports {...sectionProps} />}
           {section === 'alerts' && <Alerts {...sectionProps} />}
