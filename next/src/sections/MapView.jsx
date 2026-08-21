@@ -269,7 +269,6 @@ export default function MapView({ vehicles, devices, positions, focus, mapGroupP
             activeTrip={activeTrip}
             onLoadTrips={(range) => loadTrips(selected.device.id, range)}
             onPickTrip={showTripTrack}
-            onHideTrips={clearTrips}
           />
         )}
         {groupDialog && (
@@ -291,7 +290,7 @@ export default function MapView({ vehicles, devices, positions, focus, mapGroupP
 }
 
 // нижняя панель: подробности выбранного объекта поверх карты
-function DetailPanel({ v, stat, onClose, trips, activeTrip, onLoadTrips, onPickTrip, onHideTrips }) {
+function DetailPanel({ v, stat, onClose, trips, activeTrip, onLoadTrips, onPickTrip }) {
   const p = v.position;
   const a = p?.attributes ?? {};
   const fuel = fuelLevel(p);
@@ -318,8 +317,12 @@ function DetailPanel({ v, stat, onClose, trips, activeTrip, onLoadTrips, onPickT
     return null; // today — данные из props
   }, [period, customFrom, customTo]);
 
-  // конкретный интервал для запроса поездок (для «Сегодня» range = null)
-  const tripsRange = range ?? { from: startOfDay(), to: new Date() };
+  // поездки грузятся сами: при выборе машины и при смене периода
+  useEffect(() => {
+    const r = period === 'today' ? { from: startOfDay(), to: new Date() } : range;
+    if (r) onLoadTrips(r);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [v.device.id, period, customFrom, customTo]);
 
   useEffect(() => {
     if (period === 'today' || !range) { setFetched(null); return undefined; }
@@ -390,7 +393,7 @@ function DetailPanel({ v, stat, onClose, trips, activeTrip, onLoadTrips, onPickT
         position: 'absolute', left: 12, right: 12, bottom: 12, zIndex: 1100,
         background: 'var(--color-surface)', border: '1px solid var(--color-divider)',
         borderRadius: 16, boxShadow: 'var(--shadow-lg)',
-        maxHeight: trips ? '64%' : '46%', overflow: 'auto',
+        maxHeight: '64%', overflow: 'auto',
         padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10,
       }}
     >
@@ -400,16 +403,6 @@ function DetailPanel({ v, stat, onClose, trips, activeTrip, onLoadTrips, onPickT
         <span className={v.tagClass}>{v.stLabel}</span>
         {v.st === 'move' && <span style={{ fontWeight: 600, fontSize: 13 }}>{v.speedLabel}</span>}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            className="btn btn-secondary"
-            style={{
-              fontSize: 12, padding: '4px 12px', borderRadius: 999,
-              ...(trips ? { color: 'var(--color-accent)', borderColor: 'currentColor' } : {}),
-            }}
-            onClick={() => (trips ? onHideTrips() : onLoadTrips(tripsRange))}
-          >
-            <Icon name="route" size={13} />{trips ? 'Скрыть поездки' : 'Поездки'}
-          </button>
           <button
             className="btn btn-secondary"
             style={{
