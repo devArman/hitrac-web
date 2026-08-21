@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import LeafletMap from '../LeafletMap';
 import {
-  deviceEmoji, formatTime, fuelLevel, fuelLiters,
-  getDeviceGroups, getDeviceStats, KNOTS_TO_KMH, timeAgo,
+  deviceEmoji, formatTime, fuelLevel, fuelLiters, getDeviceGroups,
+  getDeviceStats, getJson, KNOTS_TO_KMH, localDate, sendCommand, timeAgo,
 } from '../api';
-import { Icon, StatusDot } from '../ui';
+import { ConfirmDialog, Icon, StatusDot } from '../ui';
 
 // фильтр по связи: значение → подпись
 const CONN = [
@@ -17,7 +17,14 @@ const kmLabel = (meters) => (meters >= 10000
   ? Math.round(meters / 1000)
   : Math.round(meters / 100) / 10);
 
-export default function MapView({ vehicles, devices, positions, focus }) {
+const PERIODS = [
+  ['today', 'Сегодня'],
+  ['week', 'Неделя'],
+  ['month', 'Месяц'],
+  ['custom', 'Период'],
+];
+
+export default function MapView({ vehicles, devices, positions, focus, openTrips }) {
   const [localFocus, setLocalFocus] = useState(focus);
   const [groups, setGroups] = useState([]);
   const [groupId, setGroupId] = useState('all');
@@ -189,20 +196,93 @@ export default function MapView({ vehicles, devices, positions, focus }) {
       {/* карта + нижняя панель деталей */}
       <div style={{ flex: 1, position: 'relative', display: 'flex', minWidth: 0 }}>
         <LeafletMap devices={mapDevices} positions={mapPositions} focusId={currentFocus.id} focusSeq={currentFocus.seq} />
-        {selected && <DetailPanel v={selected} stat={stats[selected.device.id]} onClose={() => setSelectedId(null)} />}
+        {selected && (
+          <DetailPanel
+            v={selected}
+            stat={stats[selected.device.id]}
+            onClose={() => setSelectedId(null)}
+            openTrips={openTrips}
+          />
+        )}
       </div>
     </div>
   );
 }
 
 // нижняя панель: подробности выбранного объекта поверх карты
-function DetailPanel({ v, stat, onClose }) {
+function DetailPanel({ v, stat, onClose, openTrips }) {
   const p = v.position;
   const a = p?.attributes ?? {};
   const fuel = fuelLevel(p);
   const liters = fuelLiters(p);
   const volts = (x) => `${Math.round(x * 10) / 10} В`;
   const yesNo = (x) => (x ? 'Вкл' : 'Выкл');
+
+  // статистика за выбранный период; «Сегодня» — из общего списка (живая)
+  const [period, setPeriod] = useState('today');
+  const [customFrom, setCustomFrom] = useState(() => localDate());
+  const [customTo, setCustomTo] = useState(() => localDate());
+  const [fetched, setFetched] = useState(null);
+  const [loadingStat, setLoadingStat] = useState(false);
+
+  const range = useMemo(() => {
+    if (period === 'week') return { from: new Date(Date.now() - 7 * 864e5) };
+    if (period === 'month') return { from: new Date(Date.now() - 30 * 864e5) };
+    if (period === 'custom') {
+      const from = new Date(`${customFrom}T00:00:00`);
+      const to = new Date(`${customTo}T23:59:59`);
+      if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from > to) return null;
+      return { from, to };
+    }
+    return null; // today — данные из props
+  }, [period, customFrom, customTo]);
+
+  useEffect(() => {
+    if (period === 'today' || !range) { setFetched(null); return undefined; }
+    let alive = true;
+    setLoadingStat(true);
+    getDeviceStats({ deviceId: v.device.id, from: range.from, to: range.to })
+      .then((rows) => {
+        if (alive) setFetched(rows[0] ?? { distanceMeters: 0, maxSpeedKnots: 0, overspeedCount: 0 });
+      })
+      .catch(() => { if (alive) setFetched(null); })
+      .finally(() => { if (alive) setLoadingStat(false); });
+    return () => { alive = false; };
+  }, [v.device.id, period, range]);
+
+  const shownStat = period === 'today' ? stat : fetched;
+
+  // блокировка двигателя — та же логика, что в разделе «Двигатель»
+  const blocked = Boolean(a.blocked);
+  const [enginePending, setEnginePending] = useState(null); // { block }
+  const [engineBusy, setEngineBusy] = useState(false);
+
+  const askEngine = async () => {
+    try {
+      const types = await getJson(`/commands/types?deviceId=${v.device.id}&textChannel=false`);
+      if (!types.some((t) => t.type === 'engineStop')) {
+        alert('Этот трекер не поддерживает удалённую блокировку двигателя');
+        return;
+      }
+    } catch { /* спросим всё равно — проверит бэкенд */ }
+    setEnginePending({ block: !blocked });
+  };
+
+  const runEngine = async () => {
+    const { block } = enginePending;
+    setEnginePending(null);
+    setEngineBusy(true);
+    try {
+      await sendCommand(v.device.id, block ? 'engineStop' : 'engineResume');
+      alert(block
+        ? 'Команда блокировки отправлена. Двигатель заглохнет после остановки автомобиля.'
+        : 'Команда разблокировки отправлена.');
+    } catch (error) {
+      alert(`Не удалось отправить команду: ${error.message}`);
+    } finally {
+      setEngineBusy(false);
+    }
+  };
 
   const rows = [
     ['Гос. номер', v.plate],
@@ -239,27 +319,69 @@ function DetailPanel({ v, stat, onClose }) {
         <b style={{ fontSize: 16 }}>{deviceEmoji(v.device) ? `${deviceEmoji(v.device)} ` : ''}{v.name}</b>
         <span className={v.tagClass}>{v.stLabel}</span>
         {v.st === 'move' && <span style={{ fontWeight: 600, fontSize: 13 }}>{v.speedLabel}</span>}
-        <span
-          onClick={onClose}
-          style={{ marginLeft: 'auto', cursor: 'pointer', opacity: 0.6, display: 'inline-flex', padding: 4 }}
-          title="Закрыть"
-        >
-          <Icon name="x" size={16} />
-        </span>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            className="btn btn-secondary"
+            style={{ fontSize: 12, padding: '4px 12px', borderRadius: 999 }}
+            onClick={() => openTrips(v.device.id)}
+          >
+            <Icon name="route" size={13} />Поездки
+          </button>
+          <button
+            className="btn btn-secondary"
+            style={{
+              fontSize: 12, padding: '4px 12px', borderRadius: 999,
+              color: blocked ? 'var(--color-accent)' : '#c0392b',
+              borderColor: 'currentColor',
+            }}
+            disabled={engineBusy || v.st === 'off'}
+            title={v.st === 'off' ? 'Трекер не на связи' : undefined}
+            onClick={askEngine}
+          >
+            <Icon name="power" size={13} />
+            {engineBusy ? 'Отправка…' : blocked ? 'Разблокировать' : 'Блокировка'}
+          </button>
+          <span
+            onClick={onClose}
+            style={{ cursor: 'pointer', opacity: 0.6, display: 'inline-flex', padding: 4 }}
+            title="Закрыть"
+          >
+            <Icon name="x" size={16} />
+          </span>
+        </div>
       </div>
-      {stat && (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        {PERIODS.map(([id, label]) => (
+          <span key={id} className={`chip${period === id ? ' chip-active' : ''}`} onClick={() => setPeriod(id)}>
+            {label}
+          </span>
+        ))}
+        {period === 'custom' && (
+          <>
+            <input type="date" className="input" value={customFrom} max={customTo}
+              onChange={(e) => setCustomFrom(e.target.value)}
+              style={{ width: 140, minHeight: 30, borderRadius: 999, fontSize: 12, padding: '2px 12px' }} />
+            <span className="text-muted" style={{ fontSize: 12 }}>—</span>
+            <input type="date" className="input" value={customTo} min={customFrom} max={localDate()}
+              onChange={(e) => setCustomTo(e.target.value)}
+              style={{ width: 140, minHeight: 30, borderRadius: 999, fontSize: 12, padding: '2px 12px' }} />
+          </>
+        )}
+        {loadingStat && <span className="text-muted" style={{ fontSize: 12 }}>Загрузка…</span>}
+      </div>
+      {shownStat && !loadingStat && (
         <div style={{ display: 'flex', gap: 16, fontSize: 13, flexWrap: 'wrap' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
             <Icon name="route" size={13} style={{ color: 'var(--color-accent)' }} />
-            Пробег сегодня: <b>{kmLabel(stat.distanceMeters)} км</b>
+            Пробег: <b>{kmLabel(shownStat.distanceMeters)} км</b>
           </span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
             <Icon name="gauge" size={13} style={{ color: 'var(--color-accent-2)' }} />
-            Макс. скорость: <b>{Math.round(stat.maxSpeedKnots * KNOTS_TO_KMH)} км/ч</b>
+            Макс. скорость: <b>{Math.round(shownStat.maxSpeedKnots * KNOTS_TO_KMH)} км/ч</b>
           </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: stat.overspeedCount > 0 ? '#c0392b' : 'inherit' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: shownStat.overspeedCount > 0 ? '#c0392b' : 'inherit' }}>
             <Icon name="triangle-alert" size={13} />
-            Превышений: <b>{stat.overspeedCount}</b>
+            Превышений: <b>{shownStat.overspeedCount}</b>
           </span>
         </div>
       )}
@@ -276,6 +398,18 @@ function DetailPanel({ v, stat, onClose }) {
           </div>
         ))}
       </div>
+      {enginePending && (
+        <ConfirmDialog
+          title={enginePending.block ? 'Заблокировать двигатель?' : 'Разблокировать двигатель?'}
+          body={enginePending.block
+            ? `${v.name} (${v.plate}): трекер получит команду блокировки. Двигатель заглохнет, когда автомобиль остановится.`
+            : `${v.name} (${v.plate}): двигатель снова можно будет завести.`}
+          confirmLabel={enginePending.block ? 'Заблокировать' : 'Разблокировать'}
+          danger={enginePending.block}
+          onConfirm={runEngine}
+          onCancel={() => setEnginePending(null)}
+        />
+      )}
     </div>
   );
 }

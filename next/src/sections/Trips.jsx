@@ -6,8 +6,13 @@ import { Blueprint } from '../ui';
 
 const timeOnly = (value) => new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
-export default function Trips({ allVehicles }) {
+export default function Trips({ allVehicles, tripsPreset }) {
   const [deviceId, setDeviceId] = useState(null);
+
+  // пришли из панели на карте — сразу выбираем эту машину
+  useEffect(() => {
+    if (tripsPreset?.deviceId != null) setDeviceId(tripsPreset.deviceId);
+  }, [tripsPreset]);
   const [date, setDate] = useState(() => localDate());
   const [trips, setTrips] = useState([]);
   const [track, setTrack] = useState(null);

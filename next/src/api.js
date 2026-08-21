@@ -70,9 +70,14 @@ const query = (params) => {
   return q.toString();
 };
 
-// суточная статистика (пробег, макс. скорость, превышения) с начала дня клиента
-export const getDeviceStats = () =>
-  getJson(`/device-stats?${query({ from: startOfDay().toISOString() })}`);
+// статистика за период (пробег, макс. скорость, превышения);
+// без опций — с начала дня клиента по всем устройствам
+export const getDeviceStats = (opts = {}) => {
+  const params = { from: (opts.from ?? startOfDay()).toISOString() };
+  if (opts.to) params.to = opts.to.toISOString();
+  if (opts.deviceId) params.deviceId = opts.deviceId;
+  return getJson(`/device-stats?${query(params)}`);
+};
 
 export const getTrips = (deviceId, from, to) =>
   getJson(`/reports/trips?${query({ deviceId, from: from.toISOString(), to: to.toISOString() })}`);

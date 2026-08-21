@@ -92,9 +92,16 @@ export default function Shell({ user, setUser, devices, positions }) {
     setFocus((f) => ({ id: deviceId, seq: f.seq + 1 }));
   };
 
+  // открыть «Поездки» с уже выбранной машиной (кнопка в панели на карте)
+  const [tripsPreset, setTripsPreset] = useState(null);
+  const openTrips = (deviceId) => {
+    setTripsPreset({ deviceId });
+    setSection('tracks');
+  };
+
   const initials = (user.name || user.email).split(/[\s@]+/).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('');
 
-  const sectionProps = { vehicles: filtered, allVehicles: vehicles, positions, devices, user, setUser, focusOnMap, focus };
+  const sectionProps = { vehicles: filtered, allVehicles: vehicles, positions, devices, user, setUser, focusOnMap, focus, openTrips, tripsPreset };
 
   return (
     <div data-theme={theme} style={{ display: 'flex', height: '100vh', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)', overflow: 'hidden' }}>
