@@ -136,10 +136,6 @@ export default function Shell({ user, setUser, devices, positions }) {
           })}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 'none' }}>
-          <div style={{ textAlign: 'right', lineHeight: 1.2 }}>
-            <div style={{ fontSize: 9, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--color-accent)' }}>Тариф</div>
-            <div style={{ fontFamily: 'var(--font-heading)', fontSize: 14 }}>3 000 ֏ / мес · {vehicles.length} тр.</div>
-          </div>
           <button
             className="btn btn-secondary"
             style={{ padding: 7, borderRadius: 999 }}
