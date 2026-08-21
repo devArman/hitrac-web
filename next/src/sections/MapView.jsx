@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import LeafletMap from '../LeafletMap';
 import {
   deviceEmoji, formatTime, fuelLevel, fuelLiters, getDeviceGroups,
@@ -311,6 +311,11 @@ function DetailPanel({ v, stat, onClose, timeline, activeTrip, onLoadTimeline, o
 
   // выбранный день (как в Wialon — лента одного дня)
   const [day, setDay] = useState(() => localDate());
+  // сегодняшний день в конце ленты — прокручиваем к нему при открытии
+  const daysRef = useRef(null);
+  useEffect(() => {
+    if (daysRef.current) daysRef.current.scrollLeft = daysRef.current.scrollWidth;
+  }, [v.device.id]);
   const [fetched, setFetched] = useState(null);
   const [loadingStat, setLoadingStat] = useState(false);
 
@@ -445,9 +450,9 @@ function DetailPanel({ v, stat, onClose, timeline, activeTrip, onLoadTimeline, o
           title="Выбрать любую дату"
           style={{ width: 148, minHeight: 30, borderRadius: 999, fontSize: 12, padding: '2px 12px', flex: 'none' }}
         />
-        {/* сегодня слева, дальше вглубь истории — прокруткой */}
-        <div className="chip-row">
-          {lastDays(30).slice().reverse().map(([value, weekday, label]) => (
+        {/* от старых дней к сегодняшнему справа */}
+        <div className="chip-row" ref={daysRef}>
+          {lastDays(30).map(([value, weekday, label]) => (
             <span key={value} className={`chip${day === value ? ' chip-active' : ''}`} onClick={() => setDay(value)}
               style={{ flexDirection: 'column', gap: 0, lineHeight: 1.25, padding: '4px 12px' }}>
               <span style={{ fontSize: 10, opacity: 0.7, textTransform: 'capitalize' }}>{weekday}</span>
