@@ -257,15 +257,18 @@ function DetailPanel({ v, stat, onClose, openTrips }) {
   const [enginePending, setEnginePending] = useState(null); // { block }
   const [engineBusy, setEngineBusy] = useState(false);
 
-  const askEngine = async () => {
-    try {
-      const types = await getJson(`/commands/types?deviceId=${v.device.id}&textChannel=false`);
-      if (!types.some((t) => t.type === 'engineStop')) {
-        alert('Этот трекер не поддерживает удалённую блокировку двигателя');
-        return;
-      }
-    } catch { /* спросим всё равно — проверит бэкенд */ }
+  const askEngine = () => {
+    // модал подтверждения — сразу и обязательно; поддержку команды
+    // проверяем параллельно и снимаем модал, только если её точно нет
     setEnginePending({ block: !blocked });
+    getJson(`/commands/types?deviceId=${v.device.id}&textChannel=false`)
+      .then((types) => {
+        if (!types.some((t) => t.type === 'engineStop')) {
+          setEnginePending(null);
+          alert('Этот трекер не поддерживает удалённую блокировку двигателя');
+        }
+      })
+      .catch(() => { /* проверить не смогли — модал остаётся, команду проверит бэкенд */ });
   };
 
   const runEngine = async () => {
