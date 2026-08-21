@@ -9,8 +9,8 @@ import { ConfirmDialog, Icon, StatusDot } from '../ui';
 // фильтр по связи: значение → подпись
 const CONN = [
   ['all', 'Все'],
-  ['online', 'На связи'],
-  ['off', 'Не на связи'],
+  ['online', 'Online'],
+  ['off', 'Offline'],
 ];
 
 const kmLabel = (meters) => (meters >= 10000
@@ -338,7 +338,7 @@ function DetailPanel({ v, stat, onClose, openTrips }) {
               borderColor: 'currentColor',
             }}
             disabled={engineBusy || v.st === 'off'}
-            title={v.st === 'off' ? 'Трекер не на связи' : undefined}
+            title={v.st === 'off' ? 'Трекер offline' : undefined}
             onClick={askEngine}
           >
             <Icon name="power" size={13} />

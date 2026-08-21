@@ -133,7 +133,7 @@ export function vehicleState(device, position) {
 export const ST = {
   move: { label: 'Движется', tag: 'tag tag-accent', dot: '#01a586' },
   park: { label: 'Стоянка', tag: 'tag tag-accent-2', dot: '#0c7fc3' },
-  off: { label: 'Не на связи', tag: 'tag tag-neutral', dot: '#98989b' },
+  off: { label: 'Offline', tag: 'tag tag-neutral', dot: '#98989b' },
 };
 
 export function fuelLiters(position) {
