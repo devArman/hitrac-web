@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import LeafletMap from '../LeafletMap';
 import {
-  deviceEmoji, formatTime, fuelLevel, fuelLiters, getDeviceGroups,
-  getDeviceStats, getJson, KNOTS_TO_KMH, localDate, sendCommand, timeAgo,
+  createDeviceGroup, deleteDeviceGroup, deviceEmoji, formatTime, fuelLevel,
+  fuelLiters, getDeviceGroups, getDeviceStats, getJson, KNOTS_TO_KMH,
+  localDate, sendCommand, timeAgo, updateDeviceGroup,
 } from '../api';
 import { ConfirmDialog, Icon, StatusDot } from '../ui';
 
@@ -33,7 +34,10 @@ export default function MapView({ vehicles, devices, positions, focus, openTrips
   const [selectedId, setSelectedId] = useState(null);
   const [stats, setStats] = useState({}); // deviceId -> {distanceMeters, maxSpeedKnots, overspeedCount}
 
-  useEffect(() => { getDeviceGroups().then(setGroups).catch(() => {}); }, []);
+  const [groupDialog, setGroupDialog] = useState(null); // { group: null|{} }
+
+  const reloadGroups = () => getDeviceGroups().then(setGroups).catch(() => {});
+  useEffect(() => { reloadGroups(); }, []);
 
   // суточная статистика: при открытии и раз в 3 минуты
   useEffect(() => {
@@ -113,18 +117,30 @@ export default function MapView({ vehicles, devices, positions, focus, openTrips
               </span>
             ))}
           </div>
-          {groups.length > 0 && (
-            <div className="chip-row">
+          <div className="chip-row">
+            {groups.length > 0 && (
               <span className={`chip${groupId === 'all' ? ' chip-active' : ''}`} onClick={() => setGroupId('all')}>
                 Все группы
               </span>
-              {groups.map((g) => (
-                <span key={g.id} className={`chip${groupId === g.id ? ' chip-active' : ''}`} onClick={() => setGroupId(groupId === g.id ? 'all' : g.id)}>
-                  {g.name} <span className="count">{g.deviceIds.length}</span>
-                </span>
-              ))}
-            </div>
-          )}
+            )}
+            {groups.map((g) => (
+              <span key={g.id} className={`chip${groupId === g.id ? ' chip-active' : ''}`} onClick={() => setGroupId(groupId === g.id ? 'all' : g.id)}>
+                {g.name} <span className="count">{g.deviceIds.length}</span>
+                {g.own && (
+                  <span
+                    style={{ display: 'inline-flex', opacity: 0.7, padding: '2px 0 2px 2px' }}
+                    title="Изменить группу"
+                    onClick={(e) => { e.stopPropagation(); setGroupDialog({ group: g }); }}
+                  >
+                    <Icon name="pencil" size={11} />
+                  </span>
+                )}
+              </span>
+            ))}
+            <span className="chip" title="Создать свою группу" onClick={() => setGroupDialog({ group: null })}>
+              <Icon name="plus" size={12} />Группа
+            </span>
+          </div>
         </div>
         {/* список */}
         <div style={{ flex: 1, overflow: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -204,7 +220,113 @@ export default function MapView({ vehicles, devices, positions, focus, openTrips
             openTrips={openTrips}
           />
         )}
+        {groupDialog && (
+          <GroupDialog
+            group={groupDialog.group}
+            vehicles={vehicles}
+            onClose={() => setGroupDialog(null)}
+            onSaved={() => { setGroupDialog(null); reloadGroups(); }}
+            onDeleted={(id) => {
+              setGroupDialog(null);
+              if (groupId === id) setGroupId('all');
+              reloadGroups();
+            }}
+          />
+        )}
       </div>
+    </div>
+  );
+}
+
+// своя группа клиента: название + выбор устройств из доступных
+function GroupDialog({ group, vehicles, onClose, onSaved, onDeleted }) {
+  const [name, setName] = useState(group?.name ?? '');
+  const [ids, setIds] = useState(() => new Set(group?.deviceIds ?? []));
+  const [q, setQ] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const query = q.trim().toLowerCase();
+  const list = vehicles.filter((v) => !query
+    || [v.name, v.plate].some((s) => s && String(s).toLowerCase().includes(query)));
+
+  const toggle = (id) => setIds((s) => {
+    const next = new Set(s);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  const save = async () => {
+    if (!name.trim()) { alert('Введите название группы'); return; }
+    setBusy(true);
+    try {
+      const data = { name: name.trim(), deviceIds: [...ids] };
+      if (group) await updateDeviceGroup(group.id, data);
+      else await createDeviceGroup(data);
+      onSaved();
+    } catch (error) {
+      alert(`Не удалось сохранить: ${error.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    setBusy(true);
+    try {
+      await deleteDeviceGroup(group.id);
+      onDeleted(group.id);
+    } catch (error) {
+      alert(`Не удалось удалить: ${error.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="dialog-backdrop" onClick={onClose}>
+      <div className="dialog" onClick={(e) => e.stopPropagation()}>
+        <div className="dialog-title">{group ? `Группа — ${group.name}` : 'Новая группа'}</div>
+        <div className="field">
+          <label>Название</label>
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Например: Мои грузовики" />
+        </div>
+        <div className="field">
+          <label>Устройства ({ids.size} выбрано)</label>
+          <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск…" style={{ marginBottom: 6, minHeight: 32, fontSize: 13 }} />
+          <div style={{ maxHeight: 240, overflow: 'auto', border: '1px solid var(--color-divider)', borderRadius: 10, padding: 4, display: 'flex', flexDirection: 'column' }}>
+            {list.map((v) => (
+              <label key={v.device.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '5px 8px', borderRadius: 8, cursor: 'pointer' }}>
+                <input type="checkbox" checked={ids.has(v.device.id)} onChange={() => toggle(v.device.id)} />
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.name}</span>
+                <span className="text-muted" style={{ fontSize: 11, flex: 'none' }}>{v.plate}</span>
+              </label>
+            ))}
+            {list.length === 0 && <div className="text-muted" style={{ fontSize: 12, padding: 8 }}>Ничего не найдено</div>}
+          </div>
+        </div>
+        <div className="dialog-actions">
+          {group && (
+            <button className="btn btn-secondary" style={{ marginRight: 'auto', color: '#c0392b', borderColor: 'currentColor' }} disabled={busy} onClick={() => setConfirmDelete(true)}>
+              Удалить
+            </button>
+          )}
+          <button className="btn btn-secondary" onClick={onClose}>Отмена</button>
+          <button className="btn btn-primary" disabled={busy} onClick={save}>
+            {busy ? 'Сохранение…' : 'Сохранить'}
+          </button>
+        </div>
+      </div>
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Удалить группу?"
+          body={`Группа «${group.name}» будет удалена. Устройства при этом не пострадают.`}
+          confirmLabel="Удалить"
+          danger
+          onConfirm={remove}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
     </div>
   );
 }

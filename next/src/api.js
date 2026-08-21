@@ -57,6 +57,11 @@ export const updateMe = (patch) =>
   api('/me', { method: 'PATCH', body: JSON.stringify(patch) }).then((r) => r.json());
 
 export const getDeviceGroups = () => getJson('/device-groups');
+export const createDeviceGroup = (data) =>
+  api('/device-groups', { method: 'POST', body: JSON.stringify(data) }).then((r) => r.json());
+export const updateDeviceGroup = (id, data) =>
+  api(`/device-groups/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) => r.json());
+export const deleteDeviceGroup = (id) => api(`/device-groups/${id}`, { method: 'DELETE' });
 export const getDeviceSettings = () => getJson('/device-settings');
 export const saveDeviceSettings = (deviceId, settings) =>
   api(`/device-settings/${deviceId}`, { method: 'POST', body: JSON.stringify(settings) }).then((r) => r.json());
