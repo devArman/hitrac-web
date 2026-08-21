@@ -104,18 +104,18 @@ export default function Shell({ user, setUser, devices, positions }) {
   const sectionProps = { vehicles: filtered, allVehicles: vehicles, positions, devices, user, setUser, focusOnMap, focus, openTrips, tripsPreset };
 
   return (
-    <div data-theme={theme} style={{ display: 'flex', height: '100vh', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)', overflow: 'hidden' }}>
+    <div data-theme={theme} style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)', overflow: 'hidden' }}>
       <AnnouncementsModal />
-      {/* sidebar */}
-      <div style={{ width: 216, flex: 'none', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--color-divider)', background: 'var(--color-surface)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: '1px solid var(--color-divider)' }}>
-          <img src="/logo.svg" alt="HiTrack" style={{ width: 34, height: 34 }} />
+      {/* верхняя панель: логотип + горизонтальное меню */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '0 16px', borderBottom: '1px solid var(--color-divider)', background: 'var(--color-surface)', flex: 'none', minHeight: 56 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, flex: 'none' }}>
+          <img src="/logo.svg" alt="HiTrack" style={{ width: 30, height: 30 }} />
           <div>
-            <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: 17, letterSpacing: '.04em' }}>HITRACK</div>
-            <div style={{ fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', opacity: 0.55 }}>Кабинет клиента</div>
+            <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: 16, letterSpacing: '.04em', lineHeight: 1.1 }}>HITRACK</div>
+            <div style={{ fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', opacity: 0.55 }}>Кабинет клиента</div>
           </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '10px 8px', flex: 1, overflow: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, overflowX: 'auto', scrollbarWidth: 'none' }}>
           {NAV.map(([id, label, icon]) => {
             const active = section === id;
             return (
@@ -123,34 +123,36 @@ export default function Shell({ user, setUser, devices, positions }) {
                 key={id}
                 onClick={() => setSection(id)}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', cursor: 'pointer', fontSize: 14,
-                  borderLeft: `2px solid ${active ? 'var(--color-accent)' : 'transparent'}`,
-                  background: active ? 'color-mix(in srgb, var(--color-accent) 12%, transparent)' : 'transparent',
+                  display: 'flex', alignItems: 'center', gap: 7, padding: '7px 13px', cursor: 'pointer',
+                  fontSize: 13.5, whiteSpace: 'nowrap', borderRadius: 999,
+                  background: active ? 'color-mix(in srgb, var(--color-accent) 13%, transparent)' : 'transparent',
                   color: active ? 'var(--color-accent)' : 'inherit',
                 }}
               >
-                <Icon name={icon} />
+                <Icon name={icon} size={15} />
                 <span>{label}</span>
               </div>
             );
           })}
         </div>
-        <div style={{ padding: 12, borderTop: '1px solid var(--color-divider)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div className="blueprint" style={{ padding: 10, fontSize: 12 }}>
-            <i className="corner tl" /><i className="corner tr" /><i className="corner bl" /><i className="corner br" />
-            <div style={{ letterSpacing: '.1em', textTransform: 'uppercase', fontSize: 10, color: 'var(--color-accent)' }}>Тариф</div>
-            <div style={{ fontFamily: 'var(--font-heading)', fontSize: 19 }}>3 000 ֏ / мес</div>
-            <div className="text-muted" style={{ fontSize: 11 }}>{vehicles.length} трекеров</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 'none' }}>
+          <div style={{ textAlign: 'right', lineHeight: 1.2 }}>
+            <div style={{ fontSize: 9, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--color-accent)' }}>Тариф</div>
+            <div style={{ fontFamily: 'var(--font-heading)', fontSize: 14 }}>3 000 ֏ / мес · {vehicles.length} тр.</div>
           </div>
-          <button className="btn btn-secondary btn-block" style={{ marginTop: 0 }} onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+          <button
+            className="btn btn-secondary"
+            style={{ padding: 7, borderRadius: 999 }}
+            title={theme === 'light' ? 'Тёмная тема' : 'Светлая тема'}
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+          >
             <Icon name={theme === 'light' ? 'moon' : 'sun'} size={15} />
-            {theme === 'light' ? 'Тёмная тема' : 'Светлая тема'}
           </button>
         </div>
       </div>
       {/* main */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 20px', borderBottom: '1px solid var(--color-divider)', flex: 'none' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 20px', borderBottom: '1px solid var(--color-divider)', flex: 'none' }}>
           <h4 style={{ margin: 0, fontSize: 21 }}>{TITLES[section]}</h4>
           <span className="tag tag-accent" style={{ gap: 6 }}>
             <span style={{ width: 7, height: 7, background: 'var(--color-accent)', borderRadius: '50%', animation: 'pulse 1.6s infinite' }} />
