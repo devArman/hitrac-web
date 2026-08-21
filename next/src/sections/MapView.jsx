@@ -371,19 +371,18 @@ function DetailPanel({ v, stat, onClose, trips, activeTrip, onLoadTrips, onPickT
     }
   };
 
-  const rows = [
-    ['Модель', v.device.model],
-    ['Водитель', v.device.attributes?.driver ?? v.device.contact],
-    a.sat != null && ['Спутники', a.sat],
-    a.ignition != null && ['Зажигание', yesNo(a.ignition)],
-    a.motion != null && ['Движение', yesNo(a.motion)],
-    a.power != null && ['Питание', volts(a.power)],
-    a.battery != null && ['Батарея', volts(a.battery)],
-    fuel != null && ['Топливо', `${fuel}%${liters != null ? ` · ${liters} л` : ''}`],
-    ['Обновлено', p?.deviceTime || v.device.lastUpdate
-      ? `${formatTime(p?.deviceTime ?? v.device.lastUpdate)} (${timeAgo(p?.deviceTime ?? v.device.lastUpdate)})`
-      : null],
-  ].filter((r) => r && r[1] != null && r[1] !== '');
+  const upd = p?.deviceTime ?? v.device.lastUpdate;
+  const facts = [
+    ['cpu', 'Модель', v.device.model],
+    ['user', 'Водитель', v.device.attributes?.driver ?? v.device.contact],
+    ['satellite', 'Спутники', a.sat],
+    ['key', 'Зажигание', a.ignition != null ? yesNo(a.ignition) : null],
+    ['navigation', 'Движение', a.motion != null ? yesNo(a.motion) : null],
+    ['zap', 'Питание', a.power != null ? volts(a.power) : null],
+    ['battery-medium', 'Батарея', a.battery != null ? volts(a.battery) : null],
+    ['fuel', 'Топливо', fuel != null ? `${fuel}%${liters != null ? ` · ${liters} л` : ''}` : null],
+    ['clock', 'Обновлено', upd ? `${formatTime(upd)} (${timeAgo(upd)})` : null],
+  ].filter((f) => f[2] != null && f[2] !== '');
 
   return (
     <div
@@ -453,22 +452,34 @@ function DetailPanel({ v, stat, onClose, trips, activeTrip, onLoadTrips, onPickT
         )}
         {loadingStat && <span className="text-muted" style={{ fontSize: 12 }}>Загрузка…</span>}
       </div>
-      {shownStat && !loadingStat && (
-        <div style={{ display: 'flex', gap: 16, fontSize: 13, flexWrap: 'wrap' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            <Icon name="route" size={13} style={{ color: 'var(--color-accent)' }} />
-            Пробег: <b>{kmLabel(shownStat.distanceMeters)} км</b>
+      <div style={{ display: 'flex', gap: 14, fontSize: 12.5, flexWrap: 'wrap', alignItems: 'center' }}>
+        {shownStat && !loadingStat && (
+          <>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }} title="Пробег за период">
+              <Icon name="route" size={13} style={{ color: 'var(--color-accent)' }} />
+              <b>{kmLabel(shownStat.distanceMeters)} км</b>
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }} title="Макс. скорость за период">
+              <Icon name="gauge" size={13} style={{ color: 'var(--color-accent-2)' }} />
+              <b>{Math.round(shownStat.maxSpeedKnots * KNOTS_TO_KMH)} км/ч</b>
+            </span>
+            <span
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: shownStat.overspeedCount > 0 ? '#c0392b' : 'inherit' }}
+              title="Превышений лимита скорости за период"
+            >
+              <Icon name="triangle-alert" size={13} />
+              <b>{shownStat.overspeedCount}</b>
+            </span>
+          </>
+        )}
+        {facts.map(([icon, label, value]) => (
+          <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }} title={label}>
+            <Icon name={icon} size={13} style={{ opacity: 0.6 }} />
+            <span className="text-muted">{label}:</span>
+            <b style={{ fontWeight: 600 }}>{value}</b>
           </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            <Icon name="gauge" size={13} style={{ color: 'var(--color-accent-2)' }} />
-            Макс. скорость: <b>{Math.round(shownStat.maxSpeedKnots * KNOTS_TO_KMH)} км/ч</b>
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: shownStat.overspeedCount > 0 ? '#c0392b' : 'inherit' }}>
-            <Icon name="triangle-alert" size={13} />
-            Превышений: <b>{shownStat.overspeedCount}</b>
-          </span>
-        </div>
-      )}
+        ))}
+      </div>
       {p?.address && (
         <div className="text-muted" style={{ fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 6 }}>
           <Icon name="map-pin" size={12} style={{ flex: 'none' }} />{p.address}
@@ -519,14 +530,6 @@ function DetailPanel({ v, stat, onClose, trips, activeTrip, onLoadTrips, onPickT
           </div>
         </div>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
-        {rows.map(([label, value]) => (
-          <div key={label} style={{ background: 'var(--color-neutral-100)', borderRadius: 10, padding: '7px 10px', minWidth: 0 }}>
-            <div className="text-muted" style={{ fontSize: 10, letterSpacing: '.06em', textTransform: 'uppercase' }}>{label}</div>
-            <div style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={String(value)}>{value}</div>
-          </div>
-        ))}
-      </div>
       {enginePending && (
         <ConfirmDialog
           title={enginePending.block ? 'Заблокировать двигатель?' : 'Разблокировать двигатель?'}
