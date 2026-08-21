@@ -37,6 +37,14 @@ export default function MapView({ vehicles, devices, positions, focus, mapGroupP
   const [selectedId, setSelectedId] = useState(null);
   const [stats, setStats] = useState({}); // deviceId -> {distanceMeters, maxSpeedKnots, overspeedCount}
 
+  // поездки и маршрут выбранного объекта — показываем прямо на этой карте
+  const [trips, setTrips] = useState(null); // { rows, loading, error }
+  const [track, setTrack] = useState(null);
+  const [activeTrip, setActiveTrip] = useState(null);
+
+  const clearTrips = () => { setTrips(null); setTrack(null); setActiveTrip(null); };
+
+
   const [groupDialog, setGroupDialog] = useState(null); // { group: null|{} }
 
   const reloadGroups = () => getDeviceGroups().then(setGroups).catch(() => {});
@@ -86,23 +94,19 @@ export default function MapView({ vehicles, devices, positions, focus, mapGroupP
     return true;
   }), [inGroup, conn]);
 
-  // фильтр действует и на маркеры карты
+  // фильтр действует и на маркеры карты; при показе маршрута на карте
+  // остаётся только выбранная машина
   const [mapDevices, mapPositions] = useMemo(() => {
-    const ids = new Set(filtered.map((v) => v.device.id));
+    const ids = track && selectedId != null
+      ? new Set([selectedId])
+      : new Set(filtered.map((v) => v.device.id));
     return [
       Object.fromEntries(Object.entries(devices).filter(([id]) => ids.has(Number(id)))),
       Object.fromEntries(Object.entries(positions).filter(([id]) => ids.has(Number(id)))),
     ];
-  }, [filtered, devices, positions]);
+  }, [filtered, devices, positions, track, selectedId]);
 
   const selected = selectedId != null ? vehicles.find((v) => v.device.id === selectedId) : null;
-
-  // поездки и маршрут выбранного объекта — показываем прямо на этой карте
-  const [trips, setTrips] = useState(null); // { rows, loading, error }
-  const [track, setTrack] = useState(null);
-  const [activeTrip, setActiveTrip] = useState(null);
-
-  const clearTrips = () => { setTrips(null); setTrack(null); setActiveTrip(null); };
 
   const pick = (v) => {
     if (v.device.id !== selectedId) clearTrips();
@@ -368,15 +372,9 @@ function DetailPanel({ v, stat, onClose, trips, activeTrip, onLoadTrips, onPickT
   };
 
   const rows = [
-    ['Гос. номер', v.plate],
     ['Модель', v.device.model],
-    ['IMEI', v.device.uniqueId],
-    ['SIM', v.device.phone],
     ['Водитель', v.device.attributes?.driver ?? v.device.contact],
-    p && ['Координаты', `${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}`],
-    p?.altitude != null && ['Высота', `${Math.round(p.altitude)} м`],
     a.sat != null && ['Спутники', a.sat],
-    a.rssi != null && ['GSM', a.rssi],
     a.ignition != null && ['Зажигание', yesNo(a.ignition)],
     a.motion != null && ['Движение', yesNo(a.motion)],
     a.power != null && ['Питание', volts(a.power)],
