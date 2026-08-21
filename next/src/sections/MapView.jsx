@@ -306,8 +306,8 @@ function DetailPanel({ v, stat, onClose, trips, activeTrip, onLoadTrips, onPickT
   const [loadingStat, setLoadingStat] = useState(false);
 
   const range = useMemo(() => {
-    if (period === 'week') return { from: new Date(Date.now() - 7 * 864e5) };
-    if (period === 'month') return { from: new Date(Date.now() - 30 * 864e5) };
+    if (period === 'week') return { from: new Date(Date.now() - 7 * 864e5), to: new Date() };
+    if (period === 'month') return { from: new Date(Date.now() - 30 * 864e5), to: new Date() };
     if (period === 'custom') {
       const from = new Date(`${customFrom}T00:00:00`);
       const to = new Date(`${customTo}T23:59:59`);
