@@ -56,6 +56,7 @@ export const sendCommand = (deviceId, type) =>
 export const updateMe = (patch) =>
   api('/me', { method: 'PATCH', body: JSON.stringify(patch) }).then((r) => r.json());
 
+export const getDeviceGroups = () => getJson('/device-groups');
 export const getDeviceSettings = () => getJson('/device-settings');
 export const saveDeviceSettings = (deviceId, settings) =>
   api(`/device-settings/${deviceId}`, { method: 'POST', body: JSON.stringify(settings) }).then((r) => r.json());
@@ -141,6 +142,19 @@ export function formatTime(value) {
   return new Date(value).toLocaleString('ru-RU', {
     day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
   });
+}
+
+// «5 мин назад» — короткое относительное время для карточек
+export function timeAgo(value) {
+  if (!value) return null;
+  const sec = Math.round((Date.now() - new Date(value).getTime()) / 1000);
+  if (sec < 60) return 'только что';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} мин назад`;
+  const hours = Math.floor(min / 60);
+  if (hours < 24) return `${hours} ч назад`;
+  const days = Math.floor(hours / 24);
+  return days < 30 ? `${days} дн назад` : formatTime(value);
 }
 
 export function startOfDay(date = new Date()) {
